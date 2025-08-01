@@ -26,68 +26,76 @@ import {
   Eye,
   Sparkles,
   Zap,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Cloud,
-  CloudOff,
-  AlertTriangle,
-  Database,
-  Copy,
-  CheckCircle,
-  ExternalLink,
 } from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { supabase } from "@/lib/supabase"
 
 interface KBArticle {
   id: string
   title: string
   content: string
   images: { id: string; data: string }[]
-  category: string
-  views: number
-  created_at: string
-  updated_at: string
+  createdAt: string
+  updatedAt: string
+  views?: number
+  category?: string
 }
 
-const categories = ["登入問題", "連線問題", "系統設定", "一般問題", "其他"]
+const defaultArticles: KBArticle[] = [
+  {
+    id: "1",
+    title: "登入 EDA Cloud VPN 顯示「無法建立工作階段」",
+    content: `請確定目前電腦是否使用的實體 IP 網路，並且對應確認設定的IP 位置是否正確。若目前的IP 與實際設定 IP 不同則無法連線成功，如需變更 IP 請至帳號中心或聯絡服務中心。
 
-const SQL_SCRIPT = `-- 建立知識庫文章表
-CREATE TABLE IF NOT EXISTS kb_articles (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    images JSONB DEFAULT '[]',
-    category TEXT DEFAULT '一般問題',
-    views INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+帳號申請資訊：EDA Cloud/Service Lab 帳號申請，建議您的帳號「帳戶」→「編輯工作階段設定」。
 
--- 建立更新時間觸發器函數
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
+客服 IP 位置：此連結
 
--- 建立更新時間觸發器
-DROP TRIGGER IF EXISTS update_kb_articles_updated_at ON kb_articles;
-CREATE TRIGGER update_kb_articles_updated_at 
-    BEFORE UPDATE ON kb_articles 
-    FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+※ EDA Cloud 2.0使用者來源為學術機構的使用者，使用學術機構內的網路會導致登入帳號失效。
 
--- 建立索引以提升查詢效能
-CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category);`
+※ EDA Cloud 2.0Service Lab (sa)帳號僅限服務中心設定產品且實際(Service Lab)帳號使用。`,
+    images: [],
+    createdAt: "2025-01-20",
+    updatedAt: "2025-01-20",
+    views: 156,
+    category: "登入問題",
+  },
+  {
+    id: "2",
+    title: "登入EDA Cloud Citrix VPN無法顯示「目前無法登入請聯絡的測驗員，以確認您的帳號」",
+    content: `出現此為當實現Cache的Citrix Workspace會異常，請將當實現的當實員清除；時間範圍建議「不限時間」或「所有時間」，並確認關閉的當實員清除Citrix Workspace所有當前服務與登入資訊。
+
+以下是相關設定畫面：
+
+[IMAGE:citrix-settings]
+
+請按照上述步驟進行設定。
+
+另外也可以參考以下畫面進行操作：
+
+[IMAGE:cache-clear]
+
+完成後重新啟動Citrix Workspace即可。`,
+    images: [
+      {
+        id: "citrix-settings",
+        data: "/placeholder.svg?height=400&width=600&text=Citrix+Workspace+Settings",
+      },
+      {
+        id: "cache-clear",
+        data: "/placeholder.svg?height=300&width=400&text=Cache+Clear+Dialog",
+      },
+    ],
+    createdAt: "2025-01-19",
+    updatedAt: "2025-01-19",
+    views: 89,
+    category: "連線問題",
+  },
+]
 
 export default function EDACloudPage() {
-  const [articles, setArticles] = useState<KBArticle[]>([])
+  const [articles, setArticles] = useState<KBArticle[]>(defaultArticles)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedArticle, setSelectedArticle] = useState<KBArticle | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -98,173 +106,29 @@ export default function EDACloudPage() {
     images: [] as { id: string; data: string }[],
     category: "一般問題",
   })
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [isOnline, setIsOnline] = useState(true)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
-  const [isInitializing, setIsInitializing] = useState(false)
-  const [tableExists, setTableExists] = useState(false)
-  const [showSetupDialog, setShowSetupDialog] = useState(false)
-  const [sqlCopied, setSqlCopied] = useState(false)
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const editContentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const { toast } = useToast()
+  const [selectedCategory, setSelectedCategory] = useState("all")
 
-  // 檢查網路狀態
+  const categories = ["登入問題", "連線問題", "系統設定", "一般問題", "其他"]
+
+  // 載入儲存的文章
   useEffect(() => {
-    const checkOnlineStatus = () => {
-      setIsOnline(navigator.onLine)
-    }
-
-    window.addEventListener("online", checkOnlineStatus)
-    window.addEventListener("offline", checkOnlineStatus)
-
-    return () => {
-      window.removeEventListener("online", checkOnlineStatus)
-      window.removeEventListener("offline", checkOnlineStatus)
+    const savedArticles = localStorage.getItem("eda-kb-articles")
+    if (savedArticles) {
+      try {
+        setArticles(JSON.parse(savedArticles))
+      } catch (error) {
+        console.error("Failed to load articles:", error)
+      }
     }
   }, [])
 
-  // 初始化資料庫和載入資料
-  useEffect(() => {
-    if (isOnline) {
-      checkDatabaseStatus()
-    }
-  }, [isOnline])
-
-  // 複製文章內容
-  const copyArticleContent = async (article: KBArticle) => {
-    // 移除圖片標記，只保留純文字內容
-    const cleanContent = article.content.replace(/\[IMAGE:[^\]]+\]/g, "[圖片]")
-
-    const content = `
-標題: ${article.title}
-分類: ${article.category}
-瀏覽次數: ${article.views || 0}
-
-內容:
-${cleanContent}
-
-建立時間: ${new Date(article.created_at).toLocaleString()}
-更新時間: ${new Date(article.updated_at).toLocaleString()}
-    `.trim()
-
-    try {
-      await navigator.clipboard.writeText(content)
-      toast({
-        title: "✅ 已複製",
-        description: "文章內容已複製到剪貼簿",
-      })
-    } catch (error) {
-      toast({
-        title: "❌ 複製失敗",
-        description: "請手動選取並複製內容",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // 檢查資料庫狀態
-  const checkDatabaseStatus = async () => {
-    try {
-      setIsInitializing(true)
-
-      // 嘗試查詢資料表是否存在
-      const { data, error } = await supabase.from("kb_articles").select("count", { count: "exact" }).limit(1)
-
-      if (error && error.code === "42P01") {
-        // 資料表不存在
-        setTableExists(false)
-        setShowSetupDialog(true)
-        toast({
-          title: "🔧 需要設定資料庫",
-          description: "知識庫資料表尚未建立，請按照指示設定",
-        })
-      } else if (error) {
-        throw error
-      } else {
-        setTableExists(true)
-        await loadArticles()
-      }
-    } catch (error) {
-      console.error("檢查資料庫狀態失敗:", error)
-      setTableExists(false)
-      toast({
-        title: "❌ 資料庫連線失敗",
-        description: "請檢查資料庫連線設定",
-        variant: "destructive",
-      })
-    } finally {
-      setIsInitializing(false)
-    }
-  }
-
-  // 載入知識庫文章
-  const loadArticles = async () => {
-    try {
-      setIsSyncing(true)
-      const { data, error } = await supabase.from("kb_articles").select("*").order("updated_at", { ascending: false })
-
-      if (error) {
-        if (error.code === "42P01") {
-          setTableExists(false)
-          setShowSetupDialog(true)
-          throw new Error("資料表不存在")
-        }
-        throw error
-      }
-
-      setArticles(data || [])
-      setLastSyncTime(new Date())
-      setTableExists(true)
-
-      toast({
-        title: "✅ 同步成功",
-        description: `已載入 ${data?.length || 0} 篇知識庫文章`,
-      })
-    } catch (error) {
-      console.error("載入知識庫文章失敗:", error)
-      toast({
-        title: "❌ 載入失敗",
-        description: error instanceof Error ? error.message : "無法從雲端載入知識庫文章",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
-
-  // 手動同步
-  const handleManualSync = async () => {
-    if (!isOnline) {
-      toast({
-        title: "🔌 網路未連線",
-        description: "請檢查網路連線後再試",
-        variant: "destructive",
-      })
-      return
-    }
-
-    await checkDatabaseStatus()
-  }
-
-  // 複製 SQL 腳本
-  const copySqlScript = async () => {
-    try {
-      await navigator.clipboard.writeText(SQL_SCRIPT)
-      setSqlCopied(true)
-      toast({
-        title: "✅ 已複製",
-        description: "SQL 腳本已複製到剪貼簿",
-      })
-      setTimeout(() => setSqlCopied(false), 2000)
-    } catch (error) {
-      toast({
-        title: "❌ 複製失敗",
-        description: "請手動選取並複製 SQL 腳本",
-        variant: "destructive",
-      })
-    }
+  // 儲存文章到 localStorage
+  const saveArticles = (updatedArticles: KBArticle[]) => {
+    setArticles(updatedArticles)
+    localStorage.setItem("eda-kb-articles", JSON.stringify(updatedArticles))
   }
 
   // 更新過濾邏輯
@@ -329,7 +193,7 @@ ${cleanContent}
   }
 
   // 新增文章
-  const handleAddArticle = async () => {
+  const handleAddArticle = () => {
     if (!newArticle.title || !newArticle.content) {
       toast({
         title: "請填寫必要欄位",
@@ -339,57 +203,24 @@ ${cleanContent}
       return
     }
 
-    if (!isOnline) {
-      toast({
-        title: "🔌 網路未連線",
-        description: "需要網路連線才能新增文章",
-        variant: "destructive",
-      })
-      return
+    const article: KBArticle = {
+      id: Date.now().toString(),
+      ...newArticle,
+      createdAt: new Date().toISOString().split("T")[0],
+      updatedAt: new Date().toISOString().split("T")[0],
+      views: 0,
     }
 
-    if (!tableExists) {
-      toast({
-        title: "❌ 資料表不存在",
-        description: "請先設定資料庫",
-        variant: "destructive",
-      })
-      return
-    }
+    const updatedArticles = [...articles, article]
+    saveArticles(updatedArticles)
 
-    try {
-      const { data, error } = await supabase
-        .from("kb_articles")
-        .insert([
-          {
-            title: newArticle.title,
-            content: newArticle.content,
-            images: newArticle.images,
-            category: newArticle.category,
-            views: 0,
-          },
-        ])
-        .select()
-        .single()
+    setNewArticle({ title: "", content: "", images: [], category: "一般問題" })
+    setIsAddDialogOpen(false)
 
-      if (error) throw error
-
-      setArticles((prev) => [data, ...prev])
-      setNewArticle({ title: "", content: "", images: [], category: "一般問題" })
-      setIsAddDialogOpen(false)
-
-      toast({
-        title: "🎉 新增成功",
-        description: "文章已成功新增到雲端知識庫",
-      })
-    } catch (error) {
-      console.error("新增文章失敗:", error)
-      toast({
-        title: "❌ 新增失敗",
-        description: "無法新增文章到雲端",
-        variant: "destructive",
-      })
-    }
+    toast({
+      title: "🎉 新增成功",
+      description: "文章已成功新增到知識庫",
+    })
   }
 
   // 編輯文章
@@ -404,7 +235,7 @@ ${cleanContent}
   }
 
   // 更新文章
-  const handleUpdateArticle = async () => {
+  const handleUpdateArticle = () => {
     if (!editingArticle || !newArticle.title || !newArticle.content) {
       toast({
         title: "請填寫必要欄位",
@@ -414,106 +245,44 @@ ${cleanContent}
       return
     }
 
-    if (!isOnline) {
-      toast({
-        title: "🔌 網路未連線",
-        description: "需要網路連線才能更新文章",
-        variant: "destructive",
-      })
-      return
-    }
+    const updatedArticles = articles.map((article) =>
+      article.id === editingArticle.id
+        ? {
+            ...article,
+            ...newArticle,
+            updatedAt: new Date().toISOString().split("T")[0],
+          }
+        : article,
+    )
 
-    try {
-      const { data, error } = await supabase
-        .from("kb_articles")
-        .update({
-          title: newArticle.title,
-          content: newArticle.content,
-          images: newArticle.images,
-          category: newArticle.category,
-        })
-        .eq("id", editingArticle.id)
-        .select()
-        .single()
+    saveArticles(updatedArticles)
+    setEditingArticle(null)
+    setNewArticle({ title: "", content: "", images: [], category: "一般問題" })
 
-      if (error) throw error
-
-      setArticles((prev) => prev.map((a) => (a.id === editingArticle.id ? data : a)))
-      setEditingArticle(null)
-      setNewArticle({ title: "", content: "", images: [], category: "一般問題" })
-
-      toast({
-        title: "✅ 更新成功",
-        description: "文章已成功更新到雲端",
-      })
-    } catch (error) {
-      console.error("更新文章失敗:", error)
-      toast({
-        title: "❌ 更新失敗",
-        description: "無法更新文章到雲端",
-        variant: "destructive",
-      })
-    }
+    toast({
+      title: "✅ 更新成功",
+      description: "文章已成功更新",
+    })
   }
 
   // 刪除文章
-  const handleDeleteArticle = async (id: string) => {
-    if (!isOnline) {
-      toast({
-        title: "🔌 網路未連線",
-        description: "需要網路連線才能刪除文章",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleDeleteArticle = (id: string) => {
+    const updatedArticles = articles.filter((article) => article.id !== id)
+    saveArticles(updatedArticles)
+    setSelectedArticle(null)
 
-    try {
-      const { error } = await supabase.from("kb_articles").delete().eq("id", id)
-
-      if (error) throw error
-
-      setArticles((prev) => prev.filter((a) => a.id !== id))
-      setSelectedArticle(null)
-
-      toast({
-        title: "🗑️ 刪除成功",
-        description: "文章已從雲端刪除",
-      })
-    } catch (error) {
-      console.error("刪除文章失敗:", error)
-      toast({
-        title: "❌ 刪除失敗",
-        description: "無法從雲端刪除文章",
-        variant: "destructive",
-      })
-    }
+    toast({
+      title: "🗑️ 刪除成功",
+      description: "文章已成功刪除",
+    })
   }
 
   // 查看文章
-  const handleViewArticle = async (article: KBArticle) => {
-    if (!isOnline) {
-      setSelectedArticle(article)
-      return
-    }
-
-    try {
-      // 增加瀏覽次數
-      const { data, error } = await supabase
-        .from("kb_articles")
-        .update({ views: (article.views || 0) + 1 })
-        .eq("id", article.id)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      const updatedArticle = { ...article, views: (article.views || 0) + 1 }
-      setArticles((prev) => prev.map((a) => (a.id === article.id ? updatedArticle : a)))
-      setSelectedArticle(updatedArticle)
-    } catch (error) {
-      console.error("更新瀏覽次數失敗:", error)
-      setSelectedArticle(article)
-    }
+  const handleViewArticle = (article: KBArticle) => {
+    // 增加瀏覽次數
+    const updatedArticles = articles.map((a) => (a.id === article.id ? { ...a, views: (a.views || 0) + 1 } : a))
+    saveArticles(updatedArticles)
+    setSelectedArticle({ ...article, views: (article.views || 0) + 1 })
   }
 
   // 渲染內容（處理圖片顯示）
@@ -566,27 +335,6 @@ ${cleanContent}
     return colors[category as keyof typeof colors] || colors["其他"]
   }
 
-  // 如果正在初始化，顯示載入畫面
-  if (isInitializing) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-        <Card className="w-96 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-0 shadow-2xl">
-          <CardContent className="p-8 text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Database className="w-8 h-8 text-white animate-pulse" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">檢查資料庫狀態</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">正在檢查知識庫資料表...</p>
-            <div className="flex items-center justify-center space-x-2">
-              <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
-              <span className="text-sm text-blue-600">請稍候</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -613,138 +361,95 @@ ${cleanContent}
                   <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
                     知識庫
                   </h1>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 font-medium">
-                    <span>智能文件管理系統 • {articles.length} 篇文章</span>
-                    <div className="flex items-center space-x-1">
-                      {isOnline ? (
-                        <>
-                          <Wifi className="w-4 h-4 text-green-500" />
-                          <span className="text-green-600">已連線</span>
-                        </>
-                      ) : (
-                        <>
-                          <WifiOff className="w-4 h-4 text-red-500" />
-                          <span className="text-red-600">離線模式</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                    智能文件管理系統 • {articles.length} 篇文章
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              {/* 資料庫狀態 */}
-              {!tableExists && (
-                <div className="flex items-center space-x-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                  <AlertTriangle className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-sm text-yellow-700 dark:text-yellow-300">需要設定</span>
-                </div>
-              )}
-
-              {/* 同步狀態 */}
-              <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-                {isOnline ? (
-                  <Cloud className="w-4 h-4 text-blue-500" />
-                ) : (
-                  <CloudOff className="w-4 h-4 text-gray-400" />
-                )}
-                {lastSyncTime && <span>最後同步: {lastSyncTime.toLocaleTimeString()}</span>}
-              </div>
-
-              {/* 手動同步 */}
-              <Button variant="outline" size="sm" onClick={handleManualSync} disabled={!isOnline || isSyncing}>
-                <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-                {isSyncing ? "檢查中..." : "重新檢查"}
-              </Button>
-
-              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    className="bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 hover:from-blue-600 hover:via-purple-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                    disabled={!isOnline || !tableExists}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    新增文章
-                    <Zap className="w-4 h-4 ml-2" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
-                  <DialogHeader className="pb-6">
-                    <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      ✨ 新增知識庫文章
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="md:col-span-2">
-                        <Label htmlFor="title" className="text-base font-semibold">
-                          文章標題 *
-                        </Label>
-                        <Input
-                          id="title"
-                          value={newArticle.title}
-                          onChange={(e) => setNewArticle({ ...newArticle, title: e.target.value })}
-                          placeholder="例如：登入問題解決方案"
-                          className="mt-2 h-12 text-lg"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="category" className="text-base font-semibold">
-                          分類
-                        </Label>
-                        <Select
-                          value={newArticle.category}
-                          onValueChange={(value) => setNewArticle({ ...newArticle, category: value })}
-                        >
-                          <SelectTrigger className="mt-2 h-12">
-                            <SelectValue placeholder="選擇分類" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 hover:from-blue-600 hover:via-purple-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-300">
+                  <Plus className="w-4 h-4 mr-2" />
+                  新增文章
+                  <Zap className="w-4 h-4 ml-2" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader className="pb-6">
+                  <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    ✨ 新增知識庫文章
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <Label htmlFor="title" className="text-base font-semibold">
+                        文章標題 *
+                      </Label>
+                      <Input
+                        id="title"
+                        value={newArticle.title}
+                        onChange={(e) => setNewArticle({ ...newArticle, title: e.target.value })}
+                        placeholder="例如：登入問題解決方案"
+                        className="mt-2 h-12 text-lg"
+                      />
                     </div>
                     <div>
-                      <Label htmlFor="content" className="text-base font-semibold">
-                        文章內容 *
+                      <Label htmlFor="category" className="text-base font-semibold">
+                        分類
                       </Label>
-                      <div className="mt-2 space-y-3">
-                        <div className="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-                            💡 提示：可直接複製圖片並貼上到文字內容中的任意位置
-                          </span>
-                        </div>
-                        <Textarea
-                          ref={contentTextareaRef}
-                          id="content"
-                          value={newArticle.content}
-                          onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })}
-                          onPaste={(e) => handlePaste(e, false)}
-                          placeholder="請輸入詳細的解決方案或說明...&#10;&#10;您可以直接複製圖片並按 Ctrl+V 貼上到此處"
-                          rows={15}
-                          className="resize-none font-mono text-sm leading-relaxed"
-                        />
-                      </div>
+                      <Select
+                        value={newArticle.category}
+                        onValueChange={(value) => setNewArticle({ ...newArticle, category: value })}
+                      >
+                        <SelectTrigger className="mt-2 h-12">
+                          <SelectValue placeholder="選擇分類" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <Button
-                      onClick={handleAddArticle}
-                      className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
-                      disabled={!isOnline || !tableExists}
-                    >
-                      <Save className="w-5 h-5 mr-2" />
-                      新增文章到知識庫
-                    </Button>
                   </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+                  <div>
+                    <Label htmlFor="content" className="text-base font-semibold">
+                      文章內容 *
+                    </Label>
+                    <div className="mt-2 space-y-3">
+                      <div className="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                          💡 提示：可直接複製圖片並貼上到文字內容中的任意位置
+                        </span>
+                      </div>
+                      <Textarea
+                        ref={contentTextareaRef}
+                        id="content"
+                        value={newArticle.content}
+                        onChange={(e) => setNewArticle({ ...newArticle, content: e.target.value })}
+                        onPaste={(e) => handlePaste(e, false)}
+                        placeholder="請輸入詳細的解決方案或說明...&#10;&#10;您可以直接複製圖片並按 Ctrl+V 貼上到此處"
+                        rows={15}
+                        className="resize-none font-mono text-sm leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleAddArticle}
+                    className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
+                  >
+                    <Save className="w-5 h-5 mr-2" />
+                    新增文章到知識庫
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </header>
@@ -752,107 +457,7 @@ ${cleanContent}
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          {!tableExists ? (
-            /* 資料庫設定指引 */
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-0 shadow-xl">
-              <CardContent className="py-12">
-                <div className="max-w-4xl mx-auto">
-                  <div className="text-center mb-8">
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-700 dark:to-blue-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <Database className="w-12 h-12 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">設定知識庫資料庫</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6">
-                      知識庫資料表尚未建立，請按照以下步驟在 Supabase 中執行 SQL 腳本
-                    </p>
-                  </div>
-
-                  <div className="space-y-6">
-                    {/* 步驟說明 */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                      <div className="text-center p-4">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <span className="text-blue-600 dark:text-blue-400 font-bold">1</span>
-                        </div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">複製 SQL 腳本</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">點擊下方按鈕複製建表腳本</p>
-                      </div>
-                      <div className="text-center p-4">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <span className="text-blue-600 dark:text-blue-400 font-bold">2</span>
-                        </div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">開啟 Supabase</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">前往 SQL Editor 頁面</p>
-                      </div>
-                      <div className="text-center p-4">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <span className="text-blue-600 dark:text-blue-400 font-bold">3</span>
-                        </div>
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">執行腳本</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">貼上並執行 SQL 腳本</p>
-                      </div>
-                    </div>
-
-                    {/* SQL 腳本區域 */}
-                    <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white">SQL 建表腳本</h4>
-                        <Button onClick={copySqlScript} variant="outline" size="sm">
-                          {sqlCopied ? (
-                            <>
-                              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                              已複製
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4 mr-2" />
-                              複製腳本
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <pre className="bg-gray-900 dark:bg-gray-800 text-green-400 p-4 rounded-lg overflow-x-auto text-sm font-mono">
-                        {SQL_SCRIPT}
-                      </pre>
-                    </div>
-
-                    {/* 操作按鈕 */}
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button
-                        onClick={() => window.open("https://supabase.com/dashboard", "_blank")}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        開啟 Supabase 控制台
-                      </Button>
-                      <Button onClick={handleManualSync} variant="outline" disabled={!isOnline}>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        執行完成後點此檢查
-                      </Button>
-                    </div>
-
-                    {/* 詳細說明 */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-start space-x-3">
-                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                        <div className="text-sm text-blue-700 dark:text-blue-300">
-                          <p className="font-medium mb-2">執行步驟：</p>
-                          <ol className="list-decimal list-inside space-y-1">
-                            <li>點擊「複製腳本」按鈕複製 SQL 腳本</li>
-                            <li>點擊「開啟 Supabase 控制台」前往您的專案</li>
-                            <li>在左側選單中點擊「SQL Editor」</li>
-                            <li>將複製的腳本貼上到編輯器中</li>
-                            <li>點擊「Run」按鈕執行腳本</li>
-                            <li>執行成功後回到此頁面點擊「執行完成後點此檢查」</li>
-                          </ol>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : !selectedArticle ? (
+          {!selectedArticle ? (
             <>
               {/* 搜尋區域 */}
               <div className="mb-8">
@@ -946,21 +551,9 @@ ${cleanContent}
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation()
-                              copyArticleContent(article)
-                            }}
-                            className="hover:bg-green-100 dark:hover:bg-green-900/30"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
                               handleEditArticle(article)
                             }}
                             className="hover:bg-blue-100 dark:hover:bg-blue-900/30"
-                            disabled={!isOnline}
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -972,7 +565,6 @@ ${cleanContent}
                               handleDeleteArticle(article.id)
                             }}
                             className="text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900/30"
-                            disabled={!isOnline}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -990,7 +582,7 @@ ${cleanContent}
                         <div className="flex items-center space-x-4">
                           <div className="flex items-center space-x-1">
                             <Clock className="w-4 h-4" />
-                            <span>{new Date(article.updated_at).toLocaleDateString()}</span>
+                            <span>{article.updatedAt}</span>
                           </div>
                           <div className="flex items-center space-x-1">
                             <Eye className="w-4 h-4" />
@@ -1016,7 +608,7 @@ ${cleanContent}
                     <p className="text-gray-500 dark:text-gray-400 mb-6">
                       {searchTerm ? "請嘗試其他關鍵字" : "開始建立您的第一篇知識庫文章"}
                     </p>
-                    {!searchTerm && isOnline && (
+                    {!searchTerm && (
                       <Button
                         onClick={() => setIsAddDialogOpen(true)}
                         className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
@@ -1051,18 +643,8 @@ ${cleanContent}
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => copyArticleContent(selectedArticle)}
-                        className="hover:bg-green-50 dark:hover:bg-green-900/30"
-                      >
-                        <Copy className="w-4 h-4 mr-2" />
-                        複製
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
                         onClick={() => handleEditArticle(selectedArticle)}
                         className="hover:bg-blue-50 dark:hover:bg-blue-900/30"
-                        disabled={!isOnline}
                       >
                         <Edit className="w-4 h-4 mr-2" />
                         編輯
@@ -1072,7 +654,6 @@ ${cleanContent}
                         variant="outline"
                         onClick={() => handleDeleteArticle(selectedArticle.id)}
                         className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
-                        disabled={!isOnline}
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
                         刪除
@@ -1085,7 +666,7 @@ ${cleanContent}
                   <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
                     <div className="flex items-center space-x-2">
                       <Clock className="w-4 h-4" />
-                      <span>更新於 {new Date(selectedArticle.updated_at).toLocaleDateString()}</span>
+                      <span>更新於 {selectedArticle.updatedAt}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Eye className="w-4 h-4" />
@@ -1175,7 +756,6 @@ ${cleanContent}
                 <Button
                   onClick={handleUpdateArticle}
                   className="flex-1 h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold"
-                  disabled={!isOnline}
                 >
                   <Save className="w-5 h-5 mr-2" />
                   更新文章
@@ -1189,72 +769,6 @@ ${cleanContent}
           </DialogContent>
         </Dialog>
       )}
-
-      {/* 設定對話框 */}
-      <Dialog open={showSetupDialog} onOpenChange={setShowSetupDialog}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader className="pb-6">
-            <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              🔧 設定知識庫資料庫
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-6">
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-              <div className="flex items-start space-x-3">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  <p className="font-medium mb-2">需要在 Supabase 中執行以下 SQL 腳本來建立知識庫資料表：</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">SQL 建表腳本</h4>
-                <Button onClick={copySqlScript} variant="outline" size="sm">
-                  {sqlCopied ? (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                      已複製
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 mr-2" />
-                      複製腳本
-                    </>
-                  )}
-                </Button>
-              </div>
-              <pre className="bg-gray-900 dark:bg-gray-800 text-green-400 p-4 rounded-lg overflow-x-auto text-sm font-mono max-h-96">
-                {SQL_SCRIPT}
-              </pre>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button
-                onClick={() => window.open("https://supabase.com/dashboard", "_blank")}
-                className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                開啟 Supabase 控制台
-              </Button>
-              <Button
-                onClick={handleManualSync}
-                variant="outline"
-                className="flex-1 bg-transparent"
-                disabled={!isOnline}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                執行完成後檢查
-              </Button>
-              <Button onClick={() => setShowSetupDialog(false)} variant="ghost" className="flex-1">
-                <X className="w-4 h-4 mr-2" />
-                稍後設定
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
