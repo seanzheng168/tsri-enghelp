@@ -12,32 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Calendar,
-  ArrowLeft,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Save,
-  X,
-  Clock,
-  MapPin,
-  Users,
-  FileText,
-  CheckCircle,
-  AlertCircle,
-  Settings,
-  Mail,
-  Download,
-  Upload,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Cloud,
-  CloudOff,
-  Copy,
-} from "lucide-react"
+import { Calendar, ArrowLeft, Plus, Edit, Trash2, Search, Save, X, Clock, MapPin, Users, FileText, CheckCircle, AlertCircle, Settings, Mail, Download, Upload, Wifi, WifiOff, RefreshCw, Cloud, CloudOff, Copy, Eye } from 'lucide-react'
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { supabase, type MeetingRecord, type EmailSettings, checkNetworkStatus, createSyncManager } from "@/lib/supabase"
@@ -88,6 +63,8 @@ export default function MeetingRecordsPage() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
+  const [selectedMeeting, setSelectedMeeting] = useState<MeetingRecord | null>(null)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
 
   // 網路狀態管理
   useEffect(() => {
@@ -141,6 +118,41 @@ ${meeting.next_meeting || "未安排"}
         variant: "destructive",
       })
     }
+  }
+
+  // 複製會議為新記錄
+  const copyMeetingAsNew = (meeting: MeetingRecord) => {
+    const newMeetingData = {
+      title: `${meeting.title} (副本)`,
+      date: "",
+      time: "",
+      location: meeting.location || "",
+      attendees: [...meeting.attendees],
+      agenda: meeting.agenda,
+      content: meeting.content,
+      decisions: meeting.decisions,
+      action_items: meeting.action_items,
+      next_meeting: meeting.next_meeting || "",
+      status: "scheduled" as const,
+      email_notifications: {
+        ...meeting.email_notifications,
+        recipients: [...meeting.email_notifications.recipients],
+      },
+    }
+    
+    setNewMeeting(newMeetingData)
+    setIsAddDialogOpen(true)
+    
+    toast({
+      title: "📋 會議已複製",
+      description: "會議內容已複製到新增表單，請設定日期時間後儲存",
+    })
+  }
+
+  // 查看會議詳情
+  const handleViewMeeting = (meeting: MeetingRecord) => {
+    setSelectedMeeting(meeting)
+    setIsViewDialogOpen(true)
   }
 
   // 載入會議紀錄
@@ -1075,10 +1087,26 @@ ${meeting.next_meeting || "未安排"}
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => copyMeetingContent(meeting)}
+                      onClick={() => handleViewMeeting(meeting)}
+                      className="hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyMeetingAsNew(meeting)}
                       className="hover:bg-green-100 dark:hover:bg-green-900/30"
                     >
                       <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => copyMeetingContent(meeting)}
+                      className="hover:bg-yellow-100 dark:hover:bg-yellow-900/30"
+                    >
+                      <FileText className="w-4 h-4" />
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => handleEditMeeting(meeting)} disabled={!isOnline}>
                       <Edit className="w-4 h-4" />
@@ -1450,6 +1478,272 @@ ${meeting.next_meeting || "未安排"}
               <Button onClick={handleUpdateMeeting} disabled={!isOnline}>
                 <Save className="w-4 h-4 mr-2" />
                 更新會議
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+      {/* 查看會議詳情對話框 */}
+      {selectedMeeting && (
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-gray-900 dark:text-white">
+                會議詳情
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* 會議基本資訊 */}
+              <Card className="bg-gray-50 dark:bg-gray-800/50">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-xl">{selectedMeeting.title}</CardTitle>
+                    <div className="flex items-center space-x-2">
+                      <Badge className={getStatusColor(selectedMeeting.status)}>
+                        {getStatusIcon(selectedMeeting.status)}
+                        <span className="ml-1">
+                          {selectedMeeting.status === "scheduled" && "已排程"}
+                          {selectedMeeting.status === "completed" && "已完成"}
+                          {selectedMeeting.status === "cancelled" && "已取消"}
+                        </span>
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyMeetingAsNew(selectedMeeting)}
+                        className="hover:bg-green-50 dark:hover:bg-green-900/30"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        複製為新會議
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Calendar className="w-4 h-4 text-blue-500" />
+                      <span className="font-medium">日期：</span>
+                      <span>{selectedMeeting.date}</span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Clock className="w-4 h-4 text-green-500" />
+                      <span className="font-medium">時間：</span>
+                      <span>{selectedMeeting.time}</span>
+                    </div>
+                    {selectedMeeting.location && (
+                      <div className="flex items-center space-x-2 text-sm">
+                        <MapPin className="w-4 h-4 text-red-500" />
+                        <span className="font-medium">地點：</span>
+                        <span>{selectedMeeting.location}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Users className="w-4 h-4 text-purple-500" />
+                      <span className="font-medium">參與者：</span>
+                      <span>{selectedMeeting.attendees.length} 人</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 參與者列表 */}
+              {selectedMeeting.attendees.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center">
+                      <Users className="w-5 h-5 mr-2" />
+                      參與者
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedMeeting.attendees.map((attendee, index) => (
+                        <Badge key={index} variant="outline" className="px-3 py-1">
+                          {attendee}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 會議內容區域 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* 議程 */}
+                {selectedMeeting.agenda && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center">
+                        <FileText className="w-5 h-5 mr-2" />
+                        議程
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {selectedMeeting.agenda}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 會議內容 */}
+                {selectedMeeting.content && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center">
+                        <FileText className="w-5 h-5 mr-2" />
+                        會議內容
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {selectedMeeting.content}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 決議事項 */}
+                {selectedMeeting.decisions && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        決議事項
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {selectedMeeting.decisions}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 行動項目 */}
+                {selectedMeeting.action_items && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg flex items-center">
+                        <AlertCircle className="w-5 h-5 mr-2" />
+                        行動項目
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
+                        {selectedMeeting.action_items}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* 下次會議 */}
+              {selectedMeeting.next_meeting && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center">
+                      <Calendar className="w-5 h-5 mr-2" />
+                      下次會議
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {selectedMeeting.next_meeting}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 郵件通知資訊 */}
+              {selectedMeeting.email_notifications.enabled && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center">
+                      <Mail className="w-5 h-5 mr-2" />
+                      郵件通知設定
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-4">
+                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                          通知已啟用
+                        </Badge>
+                        {selectedMeeting.email_notifications.notifyOnCreate && (
+                          <Badge variant="outline">建立時通知</Badge>
+                        )}
+                        {selectedMeeting.email_notifications.notifyOnUpdate && (
+                          <Badge variant="outline">更新時通知</Badge>
+                        )}
+                      </div>
+                      {selectedMeeting.email_notifications.recipients.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">收件人：</p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedMeeting.email_notifications.recipients.map((recipient, index) => (
+                              <Badge key={index} variant="secondary">
+                                {recipient}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        提前提醒：{selectedMeeting.email_notifications.reminderBefore} 分鐘
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* 時間資訊 */}
+              <Card className="bg-gray-50 dark:bg-gray-800/50">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                    <span>建立時間: {new Date(selectedMeeting.created_at).toLocaleString()}</span>
+                    <span>更新時間: {new Date(selectedMeeting.updated_at).toLocaleString()}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex justify-end space-x-2 mt-6 pt-6 border-t">
+              <Button
+                variant="outline"
+                onClick={() => copyMeetingContent(selectedMeeting)}
+                className="hover:bg-yellow-50 dark:hover:bg-yellow-900/30"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                複製內容
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  copyMeetingAsNew(selectedMeeting)
+                  setIsViewDialogOpen(false)
+                }}
+                className="hover:bg-green-50 dark:hover:bg-green-900/30"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                複製為新會議
+              </Button>
+              <Button
+                onClick={() => {
+                  handleEditMeeting(selectedMeeting)
+                  setIsViewDialogOpen(false)
+                }}
+                disabled={!isOnline}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                編輯會議
+              </Button>
+              <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                <X className="w-4 h-4 mr-2" />
+                關閉
               </Button>
             </div>
           </DialogContent>

@@ -9,25 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  BookOpen,
-  Key,
-  Globe,
-  Terminal,
-  Server,
-  FolderOpen,
-  FileText,
-  ExternalLink,
-  Wrench,
-  Settings,
-  Monitor,
-  Sun,
-  Moon,
-  User,
-  Edit,
-  Save,
-  X,
-} from "lucide-react"
+import { BookOpen, Key, Globe, Terminal, Server, FolderOpen, FileText, ExternalLink, Wrench, Settings, Monitor, Sun, Moon, User, Edit, Save, X } from 'lucide-react'
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 
@@ -464,65 +446,6 @@ export default function HomePage() {
                 </Card>
               )
             })}
-        </div>
-
-        {/* Quick Stats */}
-        <div className="mt-20 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-2xl p-8 border border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-3xl font-bold text-blue-600 mb-2">7</div>
-              <div className="text-gray-600 dark:text-gray-300">實用工具</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-green-600 mb-2">24/7</div>
-              <div className="text-gray-600 dark:text-gray-300">全天候服務</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-purple-600 mb-2">100+</div>
-              <div className="text-gray-600 dark:text-gray-300">活躍用戶</div>
-            </div>
-            <div>
-              <div className="text-3xl font-bold text-orange-600 mb-2">99.9%</div>
-              <div className="text-gray-600 dark:text-gray-300">系統穩定性</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Updates */}
-        <div className="mt-16">
-          <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">最近更新</h3>
-          <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-4 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
-                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">新增會議紀錄管理工具</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">2025年1月30日</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">新增個人化設定功能</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">2025年1月22日</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">支援深色主題模式</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">2025年1月20日</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">工具拖拽排序功能</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">2025年1月18日</p>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </main>
 

@@ -8,28 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import {
-  Monitor,
-  ArrowLeft,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Save,
-  X,
-  Terminal,
-  Copy,
-  CheckCircle,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Cloud,
-  CloudOff,
-  AlertTriangle,
-  Database,
-  ExternalLink,
-  Info,
-} from "lucide-react"
+import { Monitor, ArrowLeft, Plus, Edit, Trash2, Search, Save, X, Terminal, Copy, CheckCircle, Wifi, WifiOff, RefreshCw, Cloud, CloudOff, AlertTriangle, Database, ExternalLink, Info } from 'lucide-react'
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -329,6 +308,17 @@ export default function CentOSCommandsPage() {
       description: command.description || "",
       category: command.category || "System",
     })
+  }
+
+  // 複製指令為新指令
+  const handleDuplicateCommand = (command: CentOSCommand) => {
+    setNewCommand({
+      title: `${command.title} (副本)`,
+      command: command.command,
+      description: command.description || "",
+      category: command.category || "System",
+    })
+    setIsAddDialogOpen(true)
   }
 
   // 更新指令
@@ -757,6 +747,15 @@ export default function CentOSCommandsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            onClick={() => handleDuplicateCommand(command)}
+                            className="hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                            title="複製為新指令"
+                          >
+                            📋
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
                             onClick={() => handleEditCommand(command)}
                             className="hover:bg-blue-100 dark:hover:bg-blue-900/30"
                             disabled={!isOnline}
@@ -866,7 +865,7 @@ export default function CentOSCommandsPage() {
                   </Label>
                   <Select
                     value={newCommand.category}
-                    onValueChange={(value) => setNewCommand({ ...newCommand, category: value })}
+                    onChange={(e) => setNewCommand({ ...newCommand, category: value })}
                   >
                     <SelectTrigger className="mt-2 h-12">
                       <SelectValue placeholder="選擇分類" />

@@ -13,26 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  FolderOpen,
-  ArrowLeft,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Save,
-  X,
-  Upload,
-  Download,
-  RefreshCw,
-  FileText,
-  Wifi,
-  WifiOff,
-  Cloud,
-  CloudOff,
-  AlertTriangle,
-  Database,
-} from "lucide-react"
+import { FolderOpen, ArrowLeft, Plus, Edit, Trash2, Search, Save, X, Upload, Download, RefreshCw, FileText, Wifi, WifiOff, Cloud, CloudOff, AlertTriangle, Database } from 'lucide-react'
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabase"
@@ -253,14 +234,15 @@ export default function IPManagementPage() {
       return
     }
 
-    if (!newRecord.description.trim()) {
-      toast({
-        title: "請填寫備註",
-        description: "備註欄位不能為空",
-        variant: "destructive",
-      })
-      return
-    }
+    // 移除備註必填驗證
+    // if (!newRecord.description.trim()) {
+    //   toast({
+    //     title: "請填寫備註",
+    //     description: "備註欄位不能為空",
+    //     variant: "destructive",
+    //   })
+    //   return
+    // }
 
     if (!isOnline) {
       toast({
@@ -342,14 +324,15 @@ export default function IPManagementPage() {
       return
     }
 
-    if (!newRecord.description.trim()) {
-      toast({
-        title: "請填寫備註",
-        description: "備註欄位不能為空",
-        variant: "destructive",
-      })
-      return
-    }
+    // 移除備註必填驗證
+    // if (!newRecord.description.trim()) {
+    //   toast({
+    //     title: "請填寫備註",
+    //     description: "備註欄位不能為空",
+    //     variant: "destructive",
+    //   })
+    //   return
+    // }
 
     if (!isOnline) {
       toast({
@@ -779,7 +762,7 @@ export default function IPManagementPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="description">備註 *</Label>
+                      <Label htmlFor="description">備註</Label>
                       <Textarea
                         id="description"
                         value={newRecord.description}
@@ -1105,7 +1088,7 @@ export default function IPManagementPage() {
                 />
               </div>
               <div>
-                <Label htmlFor="edit-description">備註 *</Label>
+                <Label htmlFor="edit-description">備註</Label>
                 <Textarea
                   id="edit-description"
                   value={newRecord.description}
