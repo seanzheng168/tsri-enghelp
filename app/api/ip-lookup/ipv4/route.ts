@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// 獲取客戶端真實 IP 地址
 function getClientIP(request: NextRequest): string | null {
-  // 嘗試從各種標頭獲取真實的客戶端 IP
+  // 檢查各種可能包含真實 IP 的標頭
   const forwardedFor = request.headers.get('x-forwarded-for')
-  const realIP = request.headers.get('x-real-ip')
-  const cfConnectingIP = request.headers.get('cf-connecting-ip')
-  const xClientIP = request.headers.get('x-client-ip')
-  
-  // x-forwarded-for 可能包含多個 IP，取第一個
   if (forwardedFor) {
-    const ips = forwardedFor.split(',').map(ip => ip.trim())
-    return ips[0]
+    // x-forwarded-for 可能包含多個 IP，第一個是客戶端 IP
+    return forwardedFor.split(',')[0].trim()
   }
-  
-  // 其他標頭通常只包含一個 IP
-  if (cfConnectingIP) return cfConnectingIP
-  if (realIP) return realIP
-  if (xClientIP) return xClientIP
-  
-  // 最後嘗試從 request 對象獲取
-  const ip = request.ip
-  if (ip && ip !== '127.0.0.1' && ip !== '::1') {
-    return ip
+
+  const realIP = request.headers.get('x-real-ip')
+  if (realIP) {
+    return realIP
   }
-  
+
+  const cfConnectingIP = request.headers.get('cf-connecting-ip')
+  if (cfConnectingIP) {
+    return cfConnectingIP
+  }
+
+  const clientIP = request.headers.get('x-client-ip')
+  if (clientIP) {
+    return clientIP
+  }
+
+  // 如果都沒有，返回 null
   return null
 }
 
@@ -33,61 +34,53 @@ export async function GET(request: NextRequest) {
     const clientIP = getClientIP(request)
     
     if (clientIP) {
-      // 如果我們有客戶端 IP，直接查詢其詳細資訊
+      // 如果獲取到客戶端 IP，直接使用它查詢地理位置
       try {
-        const detailResponse = await fetch(`https://ipapi.co/${clientIP}/json/`, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
-          },
-        })
+        const geoResponse = await fetch(`http://ip-api.com/json/${clientIP}?fields=status,message,country,regionName,city,isp,org,timezone,query`)
+        const geoData = await geoResponse.json()
         
-        if (detailResponse.ok) {
-          const detailData = await detailResponse.json()
-          if (!detailData.error) {
-            return NextResponse.json({
-              ip: clientIP,
-              country: detailData.country_name || '未知',
-              region: detailData.region || '未知',
-              city: detailData.city || '未知',
-              isp: detailData.org || '未知',
-              timezone: detailData.timezone || '未知'
-            })
-          }
+        if (geoData.status === 'success') {
+          return NextResponse.json({
+            ip: geoData.query,
+            country: geoData.country,
+            region: geoData.regionName,
+            city: geoData.city,
+            isp: geoData.isp,
+            org: geoData.org,
+            timezone: geoData.timezone,
+            source: 'client-header'
+          })
         }
       } catch (error) {
-        console.warn('Failed to get client IP details:', error)
+        console.error('使用客戶端 IP 查詢失敗:', error)
       }
     }
+
+    // 備用方案：使用外部服務獲取 IP
+    const ipResponse = await fetch('https://api.ipify.org?format=json')
+    const ipData = await ipResponse.json()
     
-    // 如果無法從標頭獲取，則使用外部服務
-    const response = await fetch('https://ipapi.co/json/', {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
-      },
-    })
+    const geoResponse = await fetch(`http://ip-api.com/json/${ipData.ip}?fields=status,message,country,regionName,city,isp,org,timezone,query`)
+    const geoData = await geoResponse.json()
     
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+    if (geoData.status === 'success') {
+      return NextResponse.json({
+        ip: geoData.query,
+        country: geoData.country,
+        region: geoData.regionName,
+        city: geoData.city,
+        isp: geoData.isp,
+        org: geoData.org,
+        timezone: geoData.timezone,
+        source: 'external-service'
+      })
+    } else {
+      throw new Error(geoData.message || 'IP 查詢失敗')
     }
-    
-    const data = await response.json()
-    
-    if (data.error) {
-      throw new Error(data.reason || 'API error')
-    }
-    
-    return NextResponse.json({
-      ip: data.ip,
-      country: data.country_name || '未知',
-      region: data.region || '未知',
-      city: data.city || '未知',
-      isp: data.org || '未知',
-      timezone: data.timezone || '未知'
-    })
   } catch (error) {
-    console.error('IPv4 lookup error:', error)
+    console.error('IPv4 查詢錯誤:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch IPv4 information' },
+      { error: 'IPv4 資訊查詢失敗', details: error instanceof Error ? error.message : '未知錯誤' },
       { status: 500 }
     )
   }

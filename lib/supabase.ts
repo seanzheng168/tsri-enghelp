@@ -57,6 +57,7 @@ export interface KBArticle {
   title: string
   content: string
   images: { id: string; data: string }[]
+  files: { id: string; name: string; data: string; type: string; size: number }[]
   category: string
   views: number
   created_at: string

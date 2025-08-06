@@ -1,97 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// 獲取客戶端真實 IP 地址
+function getClientIP(request: NextRequest): string | null {
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    return forwardedFor.split(',')[0].trim()
+  }
+
+  const realIP = request.headers.get('x-real-ip')
+  if (realIP) {
+    return realIP
+  }
+
+  const cfConnectingIP = request.headers.get('cf-connecting-ip')
+  if (cfConnectingIP) {
+    return cfConnectingIP
+  }
+
+  const clientIP = request.headers.get('x-client-ip')
+  if (clientIP) {
+    return clientIP
+  }
+
+  return null
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // 嘗試多個 IPv6 檢測服務
-    let ipv6Address = null
+    // 首先嘗試從請求標頭獲取客戶端 IP
+    const clientIP = getClientIP(request)
     
-    // 方法 1: 嘗試 ipify IPv6 服務
-    try {
-      const response1 = await fetch('https://api6.ipify.org?format=json', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
-        },
-      })
-      
-      if (response1.ok) {
-        const data1 = await response1.json()
-        if (data1.ip && data1.ip.includes(':')) {
-          ipv6Address = data1.ip
-        }
-      }
-    } catch (error) {
-      console.warn('Method 1 failed:', error)
-    }
-    
-    // 方法 2: 如果第一個失敗，嘗試替代服務
-    if (!ipv6Address) {
+    if (clientIP && clientIP.includes(':')) {
+      // 如果是 IPv6 地址，直接查詢
       try {
-        const response2 = await fetch('https://v6.ident.me/', {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
-          },
-        })
+        const geoResponse = await fetch(`http://ip-api.com/json/${clientIP}?fields=status,message,country,regionName,city,isp,org,timezone,query`)
+        const geoData = await geoResponse.json()
         
-        if (response2.ok) {
-          const text = await response2.text()
-          const cleanText = text.trim()
-          if (cleanText && cleanText.includes(':')) {
-            ipv6Address = cleanText
-          }
+        if (geoData.status === 'success') {
+          return NextResponse.json({
+            ip: geoData.query,
+            country: geoData.country,
+            region: geoData.regionName,
+            city: geoData.city,
+            isp: geoData.isp,
+            org: geoData.org,
+            timezone: geoData.timezone,
+            source: 'client-header'
+          })
         }
       } catch (error) {
-        console.warn('Method 2 failed:', error)
+        console.error('使用客戶端 IPv6 查詢失敗:', error)
       }
     }
-    
-    if (!ipv6Address) {
-      return NextResponse.json(
-        { error: 'IPv6 not available' },
-        { status: 404 }
-      )
-    }
-    
-    // 嘗試獲取 IPv6 地址的詳細資訊
+
+    // 備用方案：使用外部服務獲取 IPv6
     try {
-      const detailResponse = await fetch(`https://ipapi.co/${ipv6Address}/json/`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
-        },
-      })
+      const ipResponse = await fetch('https://api64.ipify.org?format=json')
+      const ipData = await ipResponse.json()
       
-      if (detailResponse.ok) {
-        const detailData = await detailResponse.json()
+      if (ipData.ip && ipData.ip.includes(':')) {
+        const geoResponse = await fetch(`http://ip-api.com/json/${ipData.ip}?fields=status,message,country,regionName,city,isp,org,timezone,query`)
+        const geoData = await geoResponse.json()
         
-        if (!detailData.error) {
+        if (geoData.status === 'success') {
           return NextResponse.json({
-            ip: ipv6Address,
-            country: detailData.country_name || '未知',
-            region: detailData.region || '未知',
-            city: detailData.city || '未知',
-            isp: detailData.org || '未知',
-            timezone: detailData.timezone || '未知'
+            ip: geoData.query,
+            country: geoData.country,
+            region: geoData.regionName,
+            city: geoData.city,
+            isp: geoData.isp,
+            org: geoData.org,
+            timezone: geoData.timezone,
+            source: 'external-service'
           })
         }
       }
-    } catch (detailError) {
-      console.warn('Failed to get IPv6 details:', detailError)
+    } catch (error) {
+      console.error('IPv6 外部服務查詢失敗:', error)
     }
-    
-    // 如果詳細資訊獲取失敗，返回基本資訊
+
+    // 如果沒有 IPv6，返回相應訊息
     return NextResponse.json({
-      ip: ipv6Address,
-      country: '未知',
-      region: '未知',
-      city: '未知',
-      isp: '未知',
-      timezone: '未知'
-    })
-    
+      error: 'IPv6 不可用',
+      message: '您的網路環境目前不支援 IPv6 或沒有啟用 IPv6 連線'
+    }, { status: 404 })
   } catch (error) {
-    console.error('IPv6 lookup error:', error)
+    console.error('IPv6 查詢錯誤:', error)
     return NextResponse.json(
-      { error: 'IPv6 not available' },
-      { status: 404 }
+      { error: 'IPv6 資訊查詢失敗', details: error instanceof Error ? error.message : '未知錯誤' },
+      { status: 500 }
     )
   }
 }

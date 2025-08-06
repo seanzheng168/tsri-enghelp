@@ -10,33 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import {
-  BookOpen,
-  ArrowLeft,
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Save,
-  X,
-  ImageIcon,
-  Info,
-  FileText,
-  Clock,
-  Eye,
-  Sparkles,
-  Zap,
-  Wifi,
-  WifiOff,
-  RefreshCw,
-  Cloud,
-  CloudOff,
-  AlertTriangle,
-  Database,
-  Copy,
-  CheckCircle,
-  ExternalLink,
-} from "lucide-react"
+import { BookOpen, ArrowLeft, Plus, Edit, Trash2, Search, Save, X, ImageIcon, Info, FileText, Clock, Eye, Sparkles, Zap, Wifi, WifiOff, RefreshCw, Cloud, CloudOff, AlertTriangle, Database, Copy, CheckCircle, ExternalLink, Upload, File, Download, Paperclip } from 'lucide-react'
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -47,6 +21,7 @@ interface KBArticle {
   title: string
   content: string
   images: { id: string; data: string }[]
+  files: { id: string; name: string; data: string; type: string; size: number }[]
   category: string
   views: number
   created_at: string
@@ -61,6 +36,7 @@ CREATE TABLE IF NOT EXISTS kb_articles (
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     images JSONB DEFAULT '[]',
+    files JSONB DEFAULT '[]',
     category TEXT DEFAULT '一般問題',
     views INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -84,7 +60,8 @@ CREATE TRIGGER update_kb_articles_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- 建立索引以提升查詢效能
-CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category);`
+CREATE INDEX IF NOT EXISTS idx_kb_articles_category ON kb_articles(category);
+CREATE INDEX IF NOT EXISTS idx_kb_articles_files ON kb_articles USING GIN (files);`
 
 export default function EDACloudPage() {
   const [articles, setArticles] = useState<KBArticle[]>([])
@@ -96,6 +73,7 @@ export default function EDACloudPage() {
     title: "",
     content: "",
     images: [] as { id: string; data: string }[],
+    files: [] as { id: string; name: string; data: string; type: string; size: number }[],
     category: "一般問題",
   })
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -106,8 +84,10 @@ export default function EDACloudPage() {
   const [tableExists, setTableExists] = useState(false)
   const [showSetupDialog, setShowSetupDialog] = useState(false)
   const [sqlCopied, setSqlCopied] = useState(false)
+  const [viewingFile, setViewingFile] = useState<{ id: string; name: string; data: string; type: string } | null>(null)
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const editContentTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const { toast } = useToast()
 
   // 檢查網路狀態
@@ -144,6 +124,8 @@ export default function EDACloudPage() {
 
 內容:
 ${cleanContent}
+
+附件: ${article.files?.length || 0} 個檔案
 
 建立時間: ${new Date(article.created_at).toLocaleString()}
 更新時間: ${new Date(article.updated_at).toLocaleString()}
@@ -214,13 +196,19 @@ ${cleanContent}
         throw error
       }
 
-      setArticles(data || [])
+      // 確保每個文章都有 files 欄位
+      const articlesWithFiles = (data || []).map(article => ({
+        ...article,
+        files: article.files || []
+      }))
+
+      setArticles(articlesWithFiles)
       setLastSyncTime(new Date())
       setTableExists(true)
 
       toast({
         title: "✅ 同步成功",
-        description: `已載入 ${data?.length || 0} 篇知識庫文章`,
+        description: `已載入 ${articlesWithFiles.length} 篇知識庫文章`,
       })
     } catch (error) {
       console.error("載入知識庫文章失敗:", error)
@@ -267,13 +255,232 @@ ${cleanContent}
     }
   }
 
+  // 處理文件上傳
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, isEdit = false) => {
+    const files = event.target.files
+    if (!files) return
+
+    Array.from(files).forEach((file) => {
+      // 檢查文件大小 (限制 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "❌ 文件太大",
+          description: `${file.name} 超過 10MB 限制`,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string
+        const fileId = `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        
+        // 確保 MIME 類型正確
+        let mimeType = file.type
+        if (!mimeType) {
+          // 根據文件擴展名推斷 MIME 類型
+          const extension = file.name.split('.').pop()?.toLowerCase()
+          const mimeMap: { [key: string]: string } = {
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'ppt': 'application/vnd.ms-powerpoint',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'txt': 'text/plain',
+            'md': 'text/markdown',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'zip': 'application/zip',
+            'rar': 'application/x-rar-compressed'
+          }
+          mimeType = mimeMap[extension || ''] || 'application/octet-stream'
+        }
+        
+        const newFile = {
+          id: fileId,
+          name: file.name,
+          data: base64,
+          type: mimeType,
+          size: file.size
+        }
+
+        setNewArticle(prev => ({
+          ...prev,
+          files: [...prev.files, newFile]
+        }))
+
+        toast({
+          title: "📎 文件已添加",
+          description: `${file.name} 已成功添加到文章中`,
+        })
+      }
+      
+      reader.onerror = (error) => {
+        console.error('File read error:', error)
+        toast({
+          title: "❌ 文件讀取失敗",
+          description: `無法讀取 ${file.name}`,
+          variant: "destructive",
+        })
+      }
+      
+      reader.readAsDataURL(file)
+    })
+
+    // 清空 input
+    event.target.value = ''
+  }
+
+  // 移除文件
+  const removeFile = (fileId: string) => {
+    setNewArticle(prev => ({
+      ...prev,
+      files: prev.files.filter(f => f.id !== fileId)
+    }))
+  }
+
+  // 查看文件
+  const viewFile = (file: { id: string; name: string; data: string; type: string }) => {
+    setViewingFile(file)
+  }
+
+  // 渲染文件預覽內容
+  const renderFilePreview = (file: { id: string; name: string; data: string; type: string }) => {
+    if (file.type.startsWith('image/')) {
+      return (
+        <div className="flex justify-center">
+          <img
+            src={file.data || "/placeholder.svg"}
+            alt={file.name}
+            className="max-w-full h-auto rounded-lg shadow-lg"
+            onError={(e) => {
+              console.error('Image load error:', e)
+            }}
+          />
+        </div>
+      )
+    } else if (file.type.includes('pdf')) {
+      // 對於 PDF，創建一個 blob URL
+      const binaryString = atob(file.data.split(',')[1])
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      const blob = new Blob([bytes], { type: 'application/pdf' })
+      const blobUrl = URL.createObjectURL(blob)
+      
+      return (
+        <div className="w-full h-96">
+          <iframe
+            src={blobUrl}
+            className="w-full h-full border rounded-lg"
+            title={file.name}
+          />
+        </div>
+      )
+    } else if (file.type.includes('text') || file.name.endsWith('.txt') || file.name.endsWith('.md')) {
+      try {
+        const textContent = file.data.startsWith('data:') ? 
+          atob(file.data.split(',')[1]) : 
+          file.data
+        
+        return (
+          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+            <pre className="whitespace-pre-wrap text-sm text-gray-900 dark:text-white overflow-auto max-h-96 font-mono">
+              {textContent}
+            </pre>
+          </div>
+        )
+      } catch (error) {
+        console.error('Text decode error:', error)
+        return (
+          <div className="text-center py-8">
+            <File className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500">無法解析文本內容</p>
+          </div>
+        )
+      }
+    } else if (file.type.includes('word') || file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
+      // Word 文件無法直接預覽，提供下載
+      return (
+        <div className="text-center py-8">
+          <FileText className="w-16 h-16 mx-auto text-blue-400 mb-4" />
+          <p className="text-gray-500 mb-4">Word 文件無法線上預覽</p>
+          <Button
+            onClick={() => downloadFile(file)}
+            className="bg-blue-500 hover:bg-blue-600"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            下載查看
+          </Button>
+        </div>
+      )
+    } else if (file.type.includes('excel') || file.type.includes('spreadsheet') || 
+               file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
+      return (
+        <div className="text-center py-8">
+          <FileText className="w-16 h-16 mx-auto text-green-400 mb-4" />
+          <p className="text-gray-500 mb-4">Excel 文件無法線上預覽</p>
+          <Button
+            onClick={() => downloadFile(file)}
+            className="bg-green-500 hover:bg-green-600"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            下載查看
+          </Button>
+        </div>
+      )
+    } else {
+      return (
+        <div className="text-center py-8">
+          <File className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-500 mb-4">此文件類型無法預覽</p>
+          <Button
+            onClick={() => downloadFile(file)}
+            className="mt-4"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            下載文件
+          </Button>
+        </div>
+      )
+    }
+  }
+
+  // 格式化文件大小
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  // 獲取文件圖標
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return '🖼️'
+    if (type.includes('pdf')) return '📄'
+    if (type.includes('word')) return '📝'
+    if (type.includes('excel') || type.includes('spreadsheet')) return '📊'
+    if (type.includes('powerpoint') || type.includes('presentation')) return '📋'
+    if (type.includes('text')) return '📃'
+    if (type.includes('zip') || type.includes('rar')) return '🗜️'
+    return '📁'
+  }
+
   // 更新過濾邏輯
   const filteredArticles = articles.filter((article) => {
     const matchesSearch =
       searchTerm === "" ||
       article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       article.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.category?.toLowerCase().includes(searchTerm.toLowerCase())
+      article.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.files?.some(file => file.name.toLowerCase().includes(searchTerm.toLowerCase()))
 
     const matchesCategory = selectedCategory === "all" || article.category === selectedCategory
 
@@ -365,6 +572,7 @@ ${cleanContent}
             title: newArticle.title,
             content: newArticle.content,
             images: newArticle.images,
+            files: newArticle.files,
             category: newArticle.category,
             views: 0,
           },
@@ -375,7 +583,7 @@ ${cleanContent}
       if (error) throw error
 
       setArticles((prev) => [data, ...prev])
-      setNewArticle({ title: "", content: "", images: [], category: "一般問題" })
+      setNewArticle({ title: "", content: "", images: [], files: [], category: "一般問題" })
       setIsAddDialogOpen(false)
 
       toast({
@@ -399,6 +607,7 @@ ${cleanContent}
       title: article.title,
       content: article.content,
       images: article.images,
+      files: article.files || [],
       category: article.category || "一般問題",
     })
   }
@@ -430,6 +639,7 @@ ${cleanContent}
           title: newArticle.title,
           content: newArticle.content,
           images: newArticle.images,
+          files: newArticle.files,
           category: newArticle.category,
         })
         .eq("id", editingArticle.id)
@@ -440,7 +650,7 @@ ${cleanContent}
 
       setArticles((prev) => prev.map((a) => (a.id === editingArticle.id ? data : a)))
       setEditingArticle(null)
-      setNewArticle({ title: "", content: "", images: [], category: "一般問題" })
+      setNewArticle({ title: "", content: "", images: [], files: [], category: "一般問題" })
 
       toast({
         title: "✅ 更新成功",
@@ -564,6 +774,46 @@ ${cleanContent}
       其他: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300",
     }
     return colors[category as keyof typeof colors] || colors["其他"]
+  }
+
+  // 下載文件
+  const downloadFile = (file: { id: string; name: string; data: string; type: string }) => {
+    try {
+      // 創建下載鏈接
+      const link = document.createElement('a')
+      
+      // 如果是 base64 數據，直接使用
+      if (file.data.startsWith('data:')) {
+        link.href = file.data
+      } else {
+        // 如果不是 base64，嘗試創建 blob URL
+        const blob = new Blob([file.data], { type: file.type })
+        link.href = URL.createObjectURL(blob)
+      }
+      
+      link.download = file.name
+      link.style.display = 'none'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // 清理 blob URL
+      if (!file.data.startsWith('data:')) {
+        URL.revokeObjectURL(link.href)
+      }
+      
+      toast({
+        title: "📥 下載開始",
+        description: `正在下載 ${file.name}`,
+      })
+    } catch (error) {
+      console.error('Download error:', error)
+      toast({
+        title: "❌ 下載失敗",
+        description: "無法下載文件，請稍後再試",
+        variant: "destructive",
+      })
+    }
   }
 
   // 如果正在初始化，顯示載入畫面
@@ -710,6 +960,66 @@ ${cleanContent}
                         </Select>
                       </div>
                     </div>
+
+                    {/* 文件上傳區域 */}
+                    <div>
+                      <Label className="text-base font-semibold">附加文件</Label>
+                      <div className="mt-2 space-y-3">
+                        <div className="flex items-center space-x-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                          <Paperclip className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          <span className="text-sm text-green-700 dark:text-green-300 font-medium">
+                            💡 提示：可上傳 PDF、Word、Excel、圖片等文件，單個文件最大 10MB
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center space-x-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span>選擇文件</span>
+                          </Button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            onChange={(e) => handleFileUpload(e)}
+                            className="hidden"
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar"
+                          />
+                          <span className="text-sm text-gray-500">已選擇 {newArticle.files.length} 個文件</span>
+                        </div>
+                        
+                        {/* 文件列表 */}
+                        {newArticle.files.length > 0 && (
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {newArticle.files.map((file) => (
+                              <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-lg">{getFileIcon(file.type)}</span>
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</p>
+                                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeFile(file.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     <div>
                       <Label htmlFor="content" className="text-base font-semibold">
                         文章內容 *
@@ -859,7 +1169,7 @@ ${cleanContent}
                 <div className="relative max-w-2xl mx-auto">
                   <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <Input
-                    placeholder="🔍 搜尋文章標題、內容或分類..."
+                    placeholder="🔍 搜尋文章標題、內容、分類或文件名稱..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-12 pr-4 h-14 text-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg focus:shadow-xl transition-all duration-300"
@@ -891,7 +1201,7 @@ ${cleanContent}
               </div>
 
               {/* 統計資訊 */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-xl">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -922,6 +1232,17 @@ ${cleanContent}
                         <p className="text-3xl font-bold">{filteredArticles.length}</p>
                       </div>
                       <Search className="w-12 h-12 text-green-200" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0 shadow-xl">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-orange-100 font-medium">附件總數</p>
+                        <p className="text-3xl font-bold">{articles.reduce((sum, a) => sum + (a.files?.length || 0), 0)}</p>
+                      </div>
+                      <Paperclip className="w-12 h-12 text-orange-200" />
                     </div>
                   </CardContent>
                 </Card>
@@ -986,6 +1307,30 @@ ${cleanContent}
                       <p className="text-gray-600 dark:text-gray-300 line-clamp-3 mb-4 leading-relaxed">
                         {article.content.replace(/\[IMAGE:[^\]]+\]/g, "[圖片]").substring(0, 150)}...
                       </p>
+                      
+                      {/* 附件預覽 */}
+                      {article.files && article.files.length > 0 && (
+                        <div className="mb-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Paperclip className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm text-gray-500 font-medium">{article.files.length} 個附件</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {article.files.slice(0, 3).map((file) => (
+                              <div key={file.id} className="flex items-center space-x-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-xs">
+                                <span>{getFileIcon(file.type)}</span>
+                                <span className="truncate max-w-20">{file.name}</span>
+                              </div>
+                            ))}
+                            {article.files.length > 3 && (
+                              <div className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-md text-xs text-gray-500">
+                                +{article.files.length - 3} 更多
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                         <div className="flex items-center space-x-4">
                           <div className="flex items-center space-x-1">
@@ -1091,9 +1436,71 @@ ${cleanContent}
                       <Eye className="w-4 h-4" />
                       <span>{selectedArticle.views || 0} 次瀏覽</span>
                     </div>
+                    {selectedArticle.files && selectedArticle.files.length > 0 && (
+                      <div className="flex items-center space-x-2">
+                        <Paperclip className="w-4 h-4" />
+                        <span>{selectedArticle.files.length} 個附件</span>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {/* 附件區域 */}
+                  {selectedArticle.files && selectedArticle.files.length > 0 && (
+                    <div className="mb-8">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <Paperclip className="w-5 h-5 mr-2" />
+                        附加文件
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedArticle.files.map((file) => (
+                          <Card key={file.id} className="p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                <span className="text-2xl">{getFileIcon(file.type)}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 dark:text-white truncate">{file.name}</p>
+                                  <p className="text-sm text-gray-500">{formatFileSize(file.size)}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                {(file.type.startsWith('image/') || 
+                                  file.type.includes('pdf') || 
+                                  file.type.includes('text') || 
+                                  file.name.endsWith('.txt') || 
+                                  file.name.endsWith('.md') ||
+                                  file.type.includes('word') ||
+                                  file.type.includes('excel') ||
+                                  file.name.endsWith('.doc') ||
+                                  file.name.endsWith('.docx') ||
+                                  file.name.endsWith('.xls') ||
+                                  file.name.endsWith('.xlsx')) ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => viewFile(file)}
+                                    className="hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                ) : null}
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => downloadFile(file)}
+                                  className="hover:bg-green-50 dark:hover:bg-green-900/30"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 文章內容 */}
                   <div className="prose prose-lg max-w-none dark:prose-invert">
                     <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg">
                       {renderContent(selectedArticle.content, selectedArticle.images)}
@@ -1149,6 +1556,52 @@ ${cleanContent}
                   </Select>
                 </div>
               </div>
+
+              {/* 編輯文件區域 */}
+              <div>
+                <Label className="text-base font-semibold">附加文件</Label>
+                <div className="mt-2 space-y-3">
+                  <div className="flex items-center space-x-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center space-x-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>添加文件</span>
+                    </Button>
+                    <span className="text-sm text-gray-500">已選擇 {newArticle.files.length} 個文件</span>
+                  </div>
+                  
+                  {/* 文件列表 */}
+                  {newArticle.files.length > 0 && (
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {newArticle.files.map((file) => (
+                        <div key={file.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">{getFileIcon(file.type)}</span>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</p>
+                              <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(file.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="edit-content" className="text-base font-semibold">
                   文章內容 *
@@ -1184,6 +1637,44 @@ ${cleanContent}
                   <X className="w-5 h-5 mr-2" />
                   取消編輯
                 </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* 文件查看對話框 */}
+      {viewingFile && (
+        <Dialog open={!!viewingFile} onOpenChange={() => setViewingFile(null)}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-6">
+              <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                <File className="w-5 h-5 mr-2" />
+                {viewingFile.name}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {renderFilePreview(viewingFile)}
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="text-sm text-gray-500">
+                  <div>文件大小: {formatFileSize(viewingFile.size)}</div>
+                  <div>文件類型: {viewingFile.type || '未知'}</div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadFile(viewingFile)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    下載
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setViewingFile(null)}
+                  >
+                    關閉
+                  </Button>
+                </div>
               </div>
             </div>
           </DialogContent>
