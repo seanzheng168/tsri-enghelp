@@ -1,15 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Try multiple IPv6 detection services
+    // 嘗試多個 IPv6 檢測服務
     let ipv6Address = null
     
-    // Method 1: Try ipify IPv6 service
+    // 方法 1: 嘗試 ipify IPv6 服務
     try {
       const response1 = await fetch('https://api6.ipify.org?format=json', {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; IP-Lookup-Tool/1.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
         },
       })
       
@@ -23,12 +23,12 @@ export async function GET() {
       console.warn('Method 1 failed:', error)
     }
     
-    // Method 2: Try alternative service if first failed
+    // 方法 2: 如果第一個失敗，嘗試替代服務
     if (!ipv6Address) {
       try {
         const response2 = await fetch('https://v6.ident.me/', {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; IP-Lookup-Tool/1.0)',
+            'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
           },
         })
         
@@ -51,11 +51,11 @@ export async function GET() {
       )
     }
     
-    // Try to get detailed information about the IPv6 address
+    // 嘗試獲取 IPv6 地址的詳細資訊
     try {
       const detailResponse = await fetch(`https://ipapi.co/${ipv6Address}/json/`, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; IP-Lookup-Tool/1.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; TSRI-IP-Lookup/1.0)',
         },
       })
       
@@ -77,7 +77,7 @@ export async function GET() {
       console.warn('Failed to get IPv6 details:', detailError)
     }
     
-    // If detailed info fails, return basic info
+    // 如果詳細資訊獲取失敗，返回基本資訊
     return NextResponse.json({
       ip: ipv6Address,
       country: '未知',
