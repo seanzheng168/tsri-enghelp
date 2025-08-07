@@ -38,6 +38,17 @@ const defaultMeetingRecord = {
   },
 }
 
+await fetch('/api/send-email', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    recipients: ['example@gmail.com'], // 可以多筆
+    subject: '📅 測試 Gmail 通知信',
+    content: '這是一封從 Next.js + Gmail 發出的測試信件。',
+  }),
+})
+
+
 const defaultEmailSettings: EmailSettings = {
   smtp_host: "smtp.gmail.com",
   smtp_port: 587,
