@@ -59,13 +59,26 @@ const defaultEmailSettings: EmailSettings = {
 }
 
 const sendNotificationEmail = async (meeting, type) => {
+  const subject =
+    type === 'meeting_created'
+      ? `📅 新會議通知 - ${meeting.title}`
+      : `📅 會議更新通知 - ${meeting.title}`
+
+  const content = `
+會議標題：${meeting.title}
+時間：${meeting.date} ${meeting.time}
+地點：${meeting.location || '未指定'}
+參與者：${meeting.attendees.join(', ')}
+內容：${meeting.content || '無'}
+  `.trim()
+
   const res = await fetch('/api/send-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       recipients: meeting.email_notifications.recipients,
-      subject: `📅 ${type === 'meeting_created' ? '新會議通知' : '會議更新'} - ${meeting.title}`,
-      content: `內容略...`,
+      subject,
+      content,
     }),
   })
 
