@@ -37,19 +37,7 @@ const defaultMeetingRecord = {
     reminderBefore: 30,
   },
 }
-
-/*
-const defaultEmailSettings: EmailSettings = {
-  smtp_host: "smtp.gmail.com",
-  smtp_port: 587,
-  smtp_user: "",
-  smtp_password: "",
-  sender_email: "noreply@tsri.org.tw",
-  sender_name: "TSRI 會議系統",
-}
-*/
-
-const sendNotificationEmail = async (meeting, type) => {
+const sendNotificationEmail = async (meeting: MeetingRecord, type: string) => {
   const subject =
     type === 'meeting_created'
       ? `📅 新會議通知 - ${meeting.title}`
@@ -76,18 +64,16 @@ const sendNotificationEmail = async (meeting, type) => {
   if (!res.ok) throw new Error('寄信失敗')
 }
 
-
 export default function MeetingRecordsPage() {
   const [meetings, setMeetings] = useState<MeetingRecord[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [editingMeeting, setEditingMeeting] = useState<MeetingRecord | null>(null)
-  const [newMeeting, setNewMeeting] = useState(defaultMeetingRecord)
-  const [emailSettings, setEmailSettings] = useState<EmailSettings>(defaultEmailSettings)
-  const [attendeeInput, setAttendeeInput] = useState("")
-  const [recipientInput, setRecipientInput] = useState("")
+  const [newMeeting, setNewMeeting] = useState<MeetingRecord>() // 請確認 defaultMeetingRecord 有定義
+  const [attendeeInput, setAttendeeInput] = useState('')
+  const [recipientInput, setRecipientInput] = useState('')
   const [isOnline, setIsOnline] = useState(checkNetworkStatus())
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
@@ -95,6 +81,7 @@ export default function MeetingRecordsPage() {
   const { toast } = useToast()
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingRecord | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+
   const handleSendTestEmail = async () => {
     const res = await fetch('/api/send-email', {
       method: 'POST',
@@ -124,7 +111,6 @@ export default function MeetingRecordsPage() {
         測試寄信
       </button>
 
-      {/* 以下是搜尋區塊 */}
       <input
         type="text"
         placeholder="搜尋會議標題..."
@@ -133,7 +119,6 @@ export default function MeetingRecordsPage() {
         className="border p-2 mb-4 w-full"
       />
 
-      {/* 以下是會議列表展示 */}
       <ul>
         {meetings
           .filter((m) => m.title.includes(searchTerm))
