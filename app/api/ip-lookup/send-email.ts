@@ -20,14 +20,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const transporter = nodemailer.createTransport({
-      host: smtp_host,
-      port: smtp_port,
-      secure: smtp_port === 465,
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: {
-        user: smtp_user,
-        pass: smtp_password,
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     })
+
 
     await transporter.sendMail({
       from: `"${sender_name}" <${sender_email}>`,
