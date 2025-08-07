@@ -1,4 +1,5 @@
-export const dynamic = 'force-dynamic'
+"use client"
+
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
@@ -36,7 +37,28 @@ const defaultMeetingRecord = {
     reminderBefore: 30,
   },
 }
-const sendNotificationEmail = async (meeting: MeetingRecord, type: string) => {
+
+await fetch('/api/send-email', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    recipients: ['luckyid423@gmail.com'], // 可以多筆
+    subject: '📅 測試 Gmail 通知信',
+    content: '這是一封從 Next.js + Gmail 發出的測試信件。',
+  }),
+})
+
+
+const defaultEmailSettings: EmailSettings = {
+  smtp_host: "smtp.gmail.com",
+  smtp_port: 587,
+  smtp_user: "",
+  smtp_password: "",
+  sender_email: "noreply@tsri.org.tw",
+  sender_name: "TSRI 會議系統",
+}
+
+const sendNotificationEmail = async (meeting, type) => {
   const subject =
     type === 'meeting_created'
       ? `📅 新會議通知 - ${meeting.title}`
@@ -63,16 +85,18 @@ const sendNotificationEmail = async (meeting: MeetingRecord, type: string) => {
   if (!res.ok) throw new Error('寄信失敗')
 }
 
+
 export default function MeetingRecordsPage() {
   const [meetings, setMeetings] = useState<MeetingRecord[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
   const [editingMeeting, setEditingMeeting] = useState<MeetingRecord | null>(null)
-  const [newMeeting, setNewMeeting] = useState<MeetingRecord>() // 請確認 defaultMeetingRecord 有定義
-  const [attendeeInput, setAttendeeInput] = useState('')
-  const [recipientInput, setRecipientInput] = useState('')
+  const [newMeeting, setNewMeeting] = useState(defaultMeetingRecord)
+  const [emailSettings, setEmailSettings] = useState<EmailSettings>(defaultEmailSettings)
+  const [attendeeInput, setAttendeeInput] = useState("")
+  const [recipientInput, setRecipientInput] = useState("")
   const [isOnline, setIsOnline] = useState(checkNetworkStatus())
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
@@ -81,55 +105,6 @@ export default function MeetingRecordsPage() {
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingRecord | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
 
-  const handleSendTestEmail = async () => {
-    const res = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipients: ['luckyid423@gmail.com'],
-        subject: '📅 測試 Gmail 通知信',
-        content: '這是一封從 Next.js + Gmail 發出的測試信件。',
-      }),
-    })
-
-    if (!res.ok) {
-      alert('❌ 寄信失敗')
-    } else {
-      alert('✅ 寄信成功')
-    }
-  }
-
-  return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">TSRI 會議記錄</h1>
-
-      <button
-        onClick={handleSendTestEmail}
-        className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
-      >
-        測試寄信
-      </button>
-
-      <input
-        type="text"
-        placeholder="搜尋會議標題..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="border p-2 mb-4 w-full"
-      />
-
-      <ul>
-        {meetings
-          .filter((m) => m.title.includes(searchTerm))
-          .map((meeting, i) => (
-            <li key={i} className="border-b py-2">
-              {meeting.title}
-            </li>
-          ))}
-      </ul>
-    </div>
-  )
-}
   // 網路狀態管理
   useEffect(() => {
     const syncManager = createSyncManager()
