@@ -38,39 +38,6 @@ const defaultMeetingRecord = {
   },
 }
 
-const MeetingPage = () => {
-  const handleSendTestEmail = async () => {
-    const res = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipients: ['luckyid423@gmail.com'],
-        subject: '📅 測試 Gmail 通知信',
-        content: '這是一封從 Next.js + Gmail 發出的測試信件。',
-      }),
-    })
-
-    if (!res.ok) {
-      alert('❌ 寄信失敗')
-    } else {
-      alert('✅ 寄信成功')
-    }
-  }
-
-  return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">TSRI 會議管理</h1>
-      <button
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-        onClick={handleSendTestEmail}
-      >
-        📧 測試寄信
-      </button>
-    </div>
-  )
-}
-
-export default MeetingPage
 /*
 const defaultEmailSettings: EmailSettings = {
   smtp_host: "smtp.gmail.com",
@@ -128,7 +95,57 @@ export default function MeetingRecordsPage() {
   const { toast } = useToast()
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingRecord | null>(null)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const handleSendTestEmail = async () => {
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipients: ['luckyid423@gmail.com'],
+        subject: '📅 測試 Gmail 通知信',
+        content: '這是一封從 Next.js + Gmail 發出的測試信件。',
+      }),
+    })
 
+    if (!res.ok) {
+      alert('❌ 寄信失敗')
+    } else {
+      alert('✅ 寄信成功')
+    }
+  }
+
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4">TSRI 會議記錄</h1>
+
+      <button
+        onClick={handleSendTestEmail}
+        className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
+      >
+        測試寄信
+      </button>
+
+      {/* 以下是搜尋區塊 */}
+      <input
+        type="text"
+        placeholder="搜尋會議標題..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="border p-2 mb-4 w-full"
+      />
+
+      {/* 以下是會議列表展示 */}
+      <ul>
+        {meetings
+          .filter((m) => m.title.includes(searchTerm))
+          .map((meeting, i) => (
+            <li key={i} className="border-b py-2">
+              {meeting.title}
+            </li>
+          ))}
+      </ul>
+    </div>
+  )
+}
   // 網路狀態管理
   useEffect(() => {
     const syncManager = createSyncManager()
