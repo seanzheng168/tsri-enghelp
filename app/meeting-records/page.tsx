@@ -38,17 +38,40 @@ const defaultMeetingRecord = {
   },
 }
 
-await fetch('/api/send-email', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    recipients: ['luckyid423@gmail.com'], // 可以多筆
-    subject: '📅 測試 Gmail 通知信',
-    content: '這是一封從 Next.js + Gmail 發出的測試信件。',
-  }),
-})
+const MeetingPage = () => {
+  const handleSendTestEmail = async () => {
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipients: ['luckyid423@gmail.com'],
+        subject: '📅 測試 Gmail 通知信',
+        content: '這是一封從 Next.js + Gmail 發出的測試信件。',
+      }),
+    })
 
+    if (!res.ok) {
+      alert('❌ 寄信失敗')
+    } else {
+      alert('✅ 寄信成功')
+    }
+  }
 
+  return (
+    <div className="p-4">
+      <h1 className="text-xl font-bold mb-4">TSRI 會議管理</h1>
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+        onClick={handleSendTestEmail}
+      >
+        📧 測試寄信
+      </button>
+    </div>
+  )
+}
+
+export default MeetingPage
+/*
 const defaultEmailSettings: EmailSettings = {
   smtp_host: "smtp.gmail.com",
   smtp_port: 587,
@@ -57,6 +80,7 @@ const defaultEmailSettings: EmailSettings = {
   sender_email: "noreply@tsri.org.tw",
   sender_name: "TSRI 會議系統",
 }
+*/
 
 const sendNotificationEmail = async (meeting, type) => {
   const subject =
