@@ -1,3 +1,4 @@
+/*
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 
@@ -32,3 +33,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Email sending failed', error }, { status: 500 })
   }
 }
+*/
