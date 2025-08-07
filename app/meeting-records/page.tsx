@@ -47,6 +47,21 @@ const defaultEmailSettings: EmailSettings = {
   sender_name: "TSRI 會議系統",
 }
 
+const sendNotificationEmail = async (meeting, type) => {
+  const res = await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      recipients: meeting.email_notifications.recipients,
+      subject: `📅 ${type === 'meeting_created' ? '新會議通知' : '會議更新'} - ${meeting.title}`,
+      content: `內容略...`,
+    }),
+  })
+
+  if (!res.ok) throw new Error('寄信失敗')
+}
+
+
 export default function MeetingRecordsPage() {
   const [meetings, setMeetings] = useState<MeetingRecord[]>([])
   const [searchTerm, setSearchTerm] = useState("")
