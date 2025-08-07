@@ -3,12 +3,6 @@ import nodemailer from 'nodemailer'
 
 export async function POST(req: NextRequest) {
   const {
-    smtp_host,
-    smtp_port,
-    smtp_user,
-    smtp_password,
-    sender_email,
-    sender_name,
     recipients,
     subject,
     content,
@@ -16,17 +10,17 @@ export async function POST(req: NextRequest) {
 
   try {
     const transporter = nodemailer.createTransport({
-      host: smtp_host,
-      port: smtp_port,
-      secure: smtp_port === 465,
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // TLS
       auth: {
-        user: smtp_user,
-        pass: smtp_password,
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
       },
     })
 
     await transporter.sendMail({
-      from: `"${sender_name}" <${sender_email}>`,
+      from: `"TSRI 通知" <${process.env.SMTP_USER}>`,
       to: recipients.join(','),
       subject,
       text: content,
@@ -34,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Email sent successfully' })
   } catch (error) {
-    console.error('Send email failed:', error)
+    console.error('寄信失敗:', error)
     return NextResponse.json({ message: 'Email sending failed', error }, { status: 500 })
   }
 }
