@@ -109,14 +109,14 @@ const defaultTools: Tool[] = [
   },
   {
     id: "netapp-commands",
-    title: "NetApp 常用指令速查",
+    title: "NetApp 常用指令",
     description: "NetApp系統指令參考手冊",
     isVisible: true,
     requiredPermissions: ["netapp-commands"],
   },
   {
     id: "centos-commands",
-    title: "CentOS 常用指令速查",
+    title: "CentOS 常用指令",
     description: "CentOS Linux指令快速參考",
     isVisible: true,
     requiredPermissions: ["centos-commands"],
