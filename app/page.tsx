@@ -9,7 +9,25 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { BookOpen, Key, Globe, Terminal, Server, FolderOpen, FileText, ExternalLink, Wrench, Settings, Monitor, Sun, Moon, User, Edit, Save, X } from 'lucide-react'
+import {
+  BookOpen,
+  Key,
+  Globe,
+  Terminal,
+  Server,
+  FolderOpen,
+  FileText,
+  ExternalLink,
+  Wrench,
+  Settings,
+  Monitor,
+  Sun,
+  Moon,
+  User,
+  Edit,
+  Save,
+  X,
+} from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 
@@ -19,6 +37,7 @@ interface Tool {
   icon: any
   description: string
   color: string
+  buttonColor: string
   href: string
   customTitle?: string
   customDescription?: string
@@ -48,6 +67,7 @@ export default function HomePage() {
       icon: BookOpen,
       description: "智能文件管理系統",
       color: "from-blue-500 to-blue-600",
+      buttonColor: "bg-blue-600 hover:bg-blue-700",
       href: "/eda-cloud", // 保持原有路由
     },
     {
@@ -56,6 +76,7 @@ export default function HomePage() {
       icon: Key,
       description: "安全密碼生成工具",
       color: "from-amber-500 to-orange-500",
+      buttonColor: "bg-orange-500 hover:bg-orange-600",
       href: "/password-generator",
     },
     {
@@ -64,6 +85,7 @@ export default function HomePage() {
       icon: Globe,
       description: "網路IP位址查詢服務",
       color: "from-cyan-500 to-blue-500",
+      buttonColor: "bg-cyan-600 hover:bg-cyan-700",
       href: "/ip-lookup",
     },
     {
@@ -72,6 +94,7 @@ export default function HomePage() {
       icon: Terminal,
       description: "NetApp系統指令參考手冊",
       color: "from-green-500 to-emerald-600",
+      buttonColor: "bg-green-600 hover:bg-green-700",
       href: "/netapp-commands",
     },
     {
@@ -80,6 +103,7 @@ export default function HomePage() {
       icon: Server,
       description: "CentOS Linux指令快速參考",
       color: "from-purple-500 to-indigo-600",
+      buttonColor: "bg-purple-600 hover:bg-purple-700",
       href: "/centos-commands",
     },
     {
@@ -88,6 +112,7 @@ export default function HomePage() {
       icon: FolderOpen,
       description: "網路IP位址管理平台",
       color: "from-rose-500 to-pink-600",
+      buttonColor: "bg-rose-600 hover:bg-rose-700",
       href: "/ip-management",
     },
     {
@@ -96,7 +121,17 @@ export default function HomePage() {
       icon: FileText,
       description: "會議記錄與追蹤系統",
       color: "from-indigo-500 to-purple-600",
+      buttonColor: "bg-indigo-600 hover:bg-indigo-700",
       href: "/meeting-records",
+    },
+    {
+      id: "fortigate-dhcp",
+      title: "Fortigate DHCP 指令生成器",
+      icon: Terminal,
+      description: "快速生成防火牆DHCP保留地址指令",
+      color: "from-orange-500 to-red-600",
+      buttonColor: "bg-red-600 hover:bg-red-700",
+      href: "/fortigate-dhcp",
     },
   ]
 
@@ -399,7 +434,7 @@ export default function HomePage() {
               return (
                 <Card
                   key={tool.id}
-                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm overflow-hidden"
+                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-0 shadow-lg bg-white dark:bg-gray-800 backdrop-blur-sm overflow-hidden"
                   draggable
                   onDragStart={(e) => handleDragStart(e, tool.id)}
                   onDragEnd={handleDragEnd}
@@ -435,7 +470,7 @@ export default function HomePage() {
                     </p>
                     <Button
                       asChild
-                      className={`w-full bg-gradient-to-r ${tool.color} hover:shadow-lg transition-all duration-300`}
+                      className={`w-full ${tool.buttonColor} text-white font-medium hover:shadow-lg transition-all duration-300`}
                     >
                       <Link href={tool.href}>
                         開啟工具
