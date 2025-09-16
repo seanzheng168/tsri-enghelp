@@ -116,6 +116,15 @@ export default function HomePage() {
       href: "/ip-management",
     },
     {
+      id: "meeting-records",
+      title: "會議紀錄管理",
+      icon: FileText,
+      description: "會議記錄與追蹤系統",
+      color: "from-indigo-500 to-purple-600",
+      buttonColor: "bg-indigo-600 hover:bg-indigo-700",
+      href: "/meeting-records",
+    },
+    {
       id: "fortigate-dhcp",
       title: "Fortigate DHCP 指令生成器",
       icon: Terminal,
@@ -124,6 +133,7 @@ export default function HomePage() {
       buttonColor: "bg-red-600 hover:bg-red-700",
       href: "/fortigate-dhcp",
     },
+
   ]
 
   // 添加權限檢查函數
