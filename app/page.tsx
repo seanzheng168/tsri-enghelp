@@ -97,7 +97,15 @@ export default function HomePage() {
       buttonColor: "bg-green-600 hover:bg-green-700",
       href: "/netapp-commands",
     },
-
+    {
+      id: "netapp-commands",
+      title: "NetApp 常用指令ss速查",
+      icon: Terminal,
+      description: "NetApp系統指令參ss考手冊",
+      color: "from-green-500 to-emerald-600",
+      buttonColor: "bg-green-600 hover:bg-green-700",
+      href: "/fortigate-dhcp",
+    },
     {
       id: "fortigate-dhcp",
       title: "Fortigate DHCP 指令生成器",
