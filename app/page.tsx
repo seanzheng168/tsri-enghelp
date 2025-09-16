@@ -90,7 +90,7 @@ export default function HomePage() {
     },
     {
       id: "netapp-commands",
-      title: "NetApp 常用指令速查",
+      title: "NetApp 常用指令",
       icon: Terminal,
       description: "NetApp系統指令參考手冊",
       color: "from-green-500 to-emerald-600",
@@ -104,7 +104,7 @@ export default function HomePage() {
       description: "NetApp系統指令參ss考手冊",
       color: "from-green-500 to-emerald-600",
       buttonColor: "bg-green-600 hover:bg-green-700",
-      href: "/fortigate-dhcp",
+      href: "/netapp-commands",
     },
     {
       id: "fortigate-dhcp",
