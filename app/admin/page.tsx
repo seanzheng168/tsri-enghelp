@@ -135,6 +135,15 @@ const defaultTools: Tool[] = [
     isVisible: true,
     requiredPermissions: ["meeting-records"],
   },
+  {
+    id: "fortigate-dhcp",
+    title: "Fortigate DHCP 指令生成器",
+    icon: Terminal,
+    description: "快速生成防火牆DHCP保留地址指令",
+    color: "from-orange-500 to-red-600",
+    buttonColor: "bg-red-600 hover:bg-red-700",
+    href: "/fortigate-dhcp",
+  },
 ]
 
 export default function AdminPage() {
