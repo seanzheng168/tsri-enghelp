@@ -29,7 +29,7 @@ export default function PasswordGeneratorPage() {
     if (includeSymbols) charset += "!@#$%^&*()_+-=[]{}|;:<>?"
 
     if (excludeAmbiguous) {
-      charset = charset.replace(/[0O1lI.,|;.]/g, "")
+      charset = charset.replace(/[0Oo1lI.,|;]/g, "")
     }
 
     const passwords: string[] = []
