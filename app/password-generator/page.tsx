@@ -29,7 +29,7 @@ export default function PasswordGeneratorPage() {
     if (includeSymbols) charset += "!@#$%^&*()_+-=[]{}|;:<>?"
 
     if (excludeAmbiguous) {
-      charset = charset.replace(/[0O1lI.,|]/g, "")
+      charset = charset.replace(/[0O1lI.,|;.]/g, "")
     }
 
     const passwords: string[] = []
@@ -38,7 +38,7 @@ export default function PasswordGeneratorPage() {
     for (let i = 0; i < passwordCount; i++) {
       let password = ""
       let specialCharCount = 0
-      const maxSpecialChars = 3
+      const maxSpecialChars = 2
 
       for (let j = 0; j < passwordLength; j++) {
         let char = charset.charAt(Math.floor(Math.random() * charset.length))
@@ -163,7 +163,7 @@ export default function PasswordGeneratorPage() {
                     checked={excludeAmbiguous}
                     onCheckedChange={(checked) => setExcludeAmbiguous(checked as boolean)}
                   />
-                  <Label htmlFor="exclude-ambiguous">排除混淆字元 (0O0IL1|.,)</Label>
+                  <Label htmlFor="exclude-ambiguous">排除混淆字元 (0O0IL1|.,;...)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
