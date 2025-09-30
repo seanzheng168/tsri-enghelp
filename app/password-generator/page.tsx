@@ -163,7 +163,7 @@ export default function PasswordGeneratorPage() {
                     checked={excludeAmbiguous}
                     onCheckedChange={(checked) => setExcludeAmbiguous(checked as boolean)}
                   />
-                  <Label htmlFor="exclude-ambiguous">排除混淆字元 (0O0IL1|.,;)</Label>
+                  <Label htmlFor="exclude-ambiguous">排除混淆字元 (0OoIL1|.,;)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
