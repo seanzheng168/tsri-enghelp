@@ -26,18 +26,34 @@ export default function PasswordGeneratorPage() {
     if (includeUppercase) charset += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     if (includeLowercase) charset += "abcdefghijklmnopqrstuvwxyz"
     charset += "0123456789"
-    if (includeSymbols) charset += "!@#$%^&*()_+-=[]{}|;:,.<>?"
+    if (includeSymbols) charset += "!@#$%^&*()_+-=[]{}|;:<>?"
 
     if (excludeAmbiguous) {
-      charset = charset.replace(/[0O1lI]/g, "")
+      charset = charset.replace(/[0O1lI.,|]/g, "")
     }
 
     const passwords: string[] = []
+    const specialChars = "!@#$%^&*()_+-=[]{}|;:<>?"
 
     for (let i = 0; i < passwordCount; i++) {
       let password = ""
+      let specialCharCount = 0
+      const maxSpecialChars = 3
+
       for (let j = 0; j < passwordLength; j++) {
-        password += charset.charAt(Math.floor(Math.random() * charset.length))
+        let char = charset.charAt(Math.floor(Math.random() * charset.length))
+
+        if (specialChars.includes(char) && specialCharCount >= maxSpecialChars) {
+          let nonSpecialCharset = charset
+          for (const specialChar of specialChars) {
+            nonSpecialCharset = nonSpecialCharset.replace(new RegExp(`\\${specialChar}`, "g"), "")
+          }
+          char = nonSpecialCharset.charAt(Math.floor(Math.random() * nonSpecialCharset.length))
+        } else if (specialChars.includes(char)) {
+          specialCharCount++
+        }
+
+        password += char
       }
       passwords.push(password)
     }
@@ -147,7 +163,7 @@ export default function PasswordGeneratorPage() {
                     checked={excludeAmbiguous}
                     onCheckedChange={(checked) => setExcludeAmbiguous(checked as boolean)}
                   />
-                  <Label htmlFor="exclude-ambiguous">排除混淆字元 (0O0IL1)</Label>
+                  <Label htmlFor="exclude-ambiguous">排除混淆字元 (0O0IL1|.,)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
