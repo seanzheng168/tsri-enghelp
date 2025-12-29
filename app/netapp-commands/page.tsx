@@ -8,7 +8,28 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Server, ArrowLeft, Plus, Edit, Trash2, Search, Save, X, Terminal, Copy, CheckCircle, Wifi, WifiOff, RefreshCw, Cloud, CloudOff, AlertTriangle, Database, ExternalLink, Info } from 'lucide-react'
+import {
+  Server,
+  ArrowLeft,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  Save,
+  X,
+  Terminal,
+  Copy,
+  CheckCircle,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Cloud,
+  CloudOff,
+  AlertTriangle,
+  Database,
+  ExternalLink,
+  Info,
+} from "lucide-react"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -103,30 +124,58 @@ export default function NetAppCommandsPage() {
   const checkDatabaseStatus = async () => {
     try {
       setIsInitializing(true)
+      console.log("[v0] Starting database status check")
 
-      // 嘗試查詢資料表是否存在
-      const { data, error } = await supabase.from("netapp_commands").select("count", { count: "exact" }).limit(1)
+      let retries = 3
+      let lastError: any
 
-      if (error && error.code === "42P01") {
-        // 資料表不存在
-        setTableExists(false)
-        setShowSetupDialog(true)
-        toast({
-          title: "🔧 需要設定資料庫",
-          description: "NetApp 指令資料表尚未建立，請按照指示設定",
-        })
-      } else if (error) {
-        throw error
-      } else {
-        setTableExists(true)
-        await loadCommands()
+      while (retries > 0) {
+        try {
+          const { data, error } = await supabase.from("netapp_commands").select("count", { count: "exact" }).limit(1)
+
+          if (error && error.code === "42P01") {
+            // 資料表不存在
+            setTableExists(false)
+            setShowSetupDialog(true)
+            toast({
+              title: "🔧 需要設定資料庫",
+              description: "NetApp 指令資料表尚未建立，請按照指示設定",
+            })
+            return
+          } else if (error) {
+            lastError = error
+            retries--
+            if (retries > 0) {
+              console.log("[v0] Database check failed, retrying... Attempts left:", retries)
+              // 等待後重試
+              await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)))
+              continue
+            }
+            throw error
+          } else {
+            console.log("[v0] Database status check successful")
+            setTableExists(true)
+            await loadCommands()
+            return
+          }
+        } catch (e) {
+          lastError = e
+          retries--
+          if (retries > 0) {
+            console.log("[v0] Fetch error, retrying... Attempts left:", retries)
+            await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)))
+          }
+        }
       }
+
+      // 如果所有重試都失敗
+      throw lastError || new Error("Failed to check database status after retries")
     } catch (error) {
-      console.error("檢查資料庫狀態失敗:", error)
+      console.error("[v0] 檢查資料庫狀態失敗:", error)
       setTableExists(false)
       toast({
         title: "❌ 資料庫連線失敗",
-        description: "請檢查資料庫連線設定",
+        description: error instanceof Error ? error.message : "請檢查資料庫連線設定",
         variant: "destructive",
       })
     } finally {
@@ -678,7 +727,7 @@ export default function NetAppCommandsPage() {
                       </Button>
                       <Button onClick={handleManualSync} variant="outline" disabled={!isOnline}>
                         <RefreshCw className="w-4 h-4 mr-2" />
-                        執行完成後點此檢查
+                        執行完成後檢查
                       </Button>
                     </div>
                   </div>

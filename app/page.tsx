@@ -68,7 +68,7 @@ export default function HomePage() {
       description: "智能文件管理系統",
       color: "from-blue-500 to-blue-600",
       buttonColor: "bg-blue-600 hover:bg-blue-700",
-      href: "/eda-cloud", // 保持原有路由
+      href: "/eda-cloud",
     },
     {
       id: "password-generator",
@@ -89,8 +89,17 @@ export default function HomePage() {
       href: "/ip-lookup",
     },
     {
+      id: "subnet-calculator",
+      title: "網段計算機",
+      icon: Terminal,
+      description: "IPv4/IPv6 子網路計算工具",
+      color: "from-teal-500 to-cyan-600",
+      buttonColor: "bg-teal-600 hover:bg-teal-700",
+      href: "/subnet-calculator",
+    },
+    {
       id: "netapp-commands",
-      title: "NetApp 常用指令",
+      title: "NetApp 常用指令速查",
       icon: Terminal,
       description: "NetApp系統指令參考手冊",
       color: "from-green-500 to-emerald-600",
@@ -99,7 +108,7 @@ export default function HomePage() {
     },
     {
       id: "centos-commands",
-      title: "CentOS 常用指令",
+      title: "CentOS 常用指令速查",
       icon: Server,
       description: "CentOS Linux指令快速參考",
       color: "from-purple-500 to-indigo-600",
