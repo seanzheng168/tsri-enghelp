@@ -117,6 +117,7 @@ export default function HomePage() {
       buttonColor: "bg-purple-600 hover:bg-purple-700",
       href: "/centos-commands",
     },
+    /*
     {
       id: "ip-management",
       title: "IP 管理系統",
@@ -126,7 +127,6 @@ export default function HomePage() {
       buttonColor: "bg-rose-600 hover:bg-rose-700",
       href: "/ip-management",
     },
-    /*
     {
       id: "meeting-records",
       title: "會議紀錄管理",
