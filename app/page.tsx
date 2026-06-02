@@ -142,6 +142,15 @@ export default function HomePage() {
       buttonColor: "bg-red-600 hover:bg-red-700",
       href: "/fortigate-dhcp",
     },
+    {
+      id: "paloalto-dhcp",
+      title: "Palo Alto DHCP 指令產生器",
+      icon: Terminal,
+      description: "PA防火牆DHCP保留IP指令生成工具",
+      color: "from-red-500 to-rose-600",
+      buttonColor: "bg-rose-600 hover:bg-rose-700",
+      href: "/paloalto-dhcp",
+    },
   ]
 
   // 添加權限檢查函數
