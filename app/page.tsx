@@ -61,6 +61,7 @@ export default function HomePage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const defaultTools: Tool[] = [
+    /*
     {
       id: "knowledge-base",
       title: "知識庫",
@@ -70,6 +71,7 @@ export default function HomePage() {
       buttonColor: "bg-blue-600 hover:bg-blue-700",
       href: "/eda-cloud",
     },
+    */
     {
       id: "password-generator",
       title: "密碼產生器",
@@ -99,7 +101,7 @@ export default function HomePage() {
     },
     {
       id: "netapp-commands",
-      title: "NetApp 常用指令速查",
+      title: "NetApp 常用指令",
       icon: Terminal,
       description: "NetApp系統指令參考手冊",
       color: "from-green-500 to-emerald-600",
@@ -108,7 +110,7 @@ export default function HomePage() {
     },
     {
       id: "centos-commands",
-      title: "CentOS 常用指令速查",
+      title: "CentOS 常用指令",
       icon: Server,
       description: "CentOS Linux指令快速參考",
       color: "from-purple-500 to-indigo-600",
@@ -124,6 +126,7 @@ export default function HomePage() {
       buttonColor: "bg-rose-600 hover:bg-rose-700",
       href: "/ip-management",
     },
+    /*
     {
       id: "meeting-records",
       title: "會議紀錄管理",
@@ -133,6 +136,7 @@ export default function HomePage() {
       buttonColor: "bg-indigo-600 hover:bg-indigo-700",
       href: "/meeting-records",
     },
+    */
     {
       id: "fortigate-dhcp",
       title: "Fortigate DHCP 指令生成器",
